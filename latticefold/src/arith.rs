@@ -52,7 +52,7 @@ impl<R: Ring> CCS<R> {
             // complete the hadamard chain
             let mut hadamard_result = vec![R::one(); self.m];
             for M_j in vec_M_j.into_iter() {
-                let M_j_z: Vec<R> = utils::mat_by_vec(M_j, &z.to_vec());
+                let M_j_z: Vec<R> = utils::mat_by_vec(M_j, z);
 
                 hadamard_result = hadamard_vec(&hadamard_result, &M_j_z);
             }
@@ -101,4 +101,25 @@ impl<R: Ring> CCS<R> {
             C: self.M[2].clone(),
         }
     }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct CCCS<R: Ring> {
+    cm: Vec<R>,
+    x_ccs: Vec<R>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LCCCS<R: Ring> {
+    r_arr: Vec<R>,
+    v: R,
+    y: Vec<R>,
+    u: Vec<R>,
+    x_w: Vec<R>,
+    h: R,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Witness<R: Ring> {
+    f_arr: Vec<R>,
+    w_ccs: Vec<R>,
 }

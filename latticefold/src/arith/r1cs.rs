@@ -97,16 +97,16 @@ pub mod tests {
         // R1CS for: x^3 + x + 5 = y (example from article
         // https://www.vitalik.ca/general/2016/12/10/qap.html )
         let A = to_F_matrix::<R>(vec![
-            vec![0, 1, 0, 0, 0, 0],
+            vec![1, 0, 0, 0, 0, 0],
             vec![0, 0, 0, 1, 0, 0],
-            vec![0, 1, 0, 0, 1, 0],
-            vec![5, 0, 0, 0, 0, 1],
+            vec![1, 0, 0, 0, 1, 0],
+            vec![0, 5, 0, 0, 0, 1],
         ]);
         let B = to_F_matrix::<R>(vec![
-            vec![0, 1, 0, 0, 0, 0],
-            vec![0, 1, 0, 0, 0, 0],
             vec![1, 0, 0, 0, 0, 0],
             vec![1, 0, 0, 0, 0, 0],
+            vec![0, 1, 0, 0, 0, 0],
+            vec![0, 1, 0, 0, 0, 0],
         ]);
         let C = to_F_matrix::<R>(vec![
             vec![0, 0, 0, 1, 0, 0],
@@ -121,8 +121,8 @@ pub mod tests {
     pub fn get_test_z<R: Ring>(input: usize) -> Vec<R> {
         // z = (1, io, w)
         to_F_vec(vec![
+            input, // io
             1,
-            input,                             // io
             input * input * input + input + 5, // x^3 + x + 5
             input * input,                     // x^2
             input * input * input,             // x^2 * x

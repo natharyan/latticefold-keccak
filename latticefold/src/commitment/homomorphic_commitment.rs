@@ -53,7 +53,7 @@ impl<'a, 'b, const C: usize, R: Ring> Add<&'a Commitment<C, R>> for &'b Commitme
     type Output = Commitment<C, R>;
 
     fn add(self, rhs: &'a Commitment<C, R>) -> Self::Output {
-        let mut res_vec = Vec::<R>::with_capacity(C);
+        let mut res_vec = vec![R::zero(); C];
 
         res_vec
             .iter_mut()
@@ -93,7 +93,7 @@ impl<'a, 'b, const C: usize, R: Ring> Sub<&'a Commitment<C, R>> for &'b Commitme
     type Output = Commitment<C, R>;
 
     fn sub(self, rhs: &'a Commitment<C, R>) -> Self::Output {
-        let mut res_vec = Vec::<R>::with_capacity(C);
+        let mut res_vec = vec![R::zero(); C];
 
         res_vec
             .iter_mut()
@@ -133,7 +133,7 @@ impl<'a, 'b, const C: usize, R: Ring> Mul<&'a R> for &'b Commitment<C, R> {
     type Output = Commitment<C, R>;
 
     fn mul(self, rhs: &'a R) -> Self::Output {
-        let mut res_vec = Vec::<R>::with_capacity(C);
+        let mut res_vec = vec![R::zero(); C];
 
         res_vec
             .iter_mut()

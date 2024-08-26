@@ -1,14 +1,15 @@
+use decomposition::{
+    DecompositionProof, DecompositionProver, DecompositionVerifier, LFDecompositionProver,
+    LFDecompositionVerifier,
+};
 use lattirust_arithmetic::{challenge_set::latticefold_challenge_set::OverField, ring::PolyRing};
 use std::marker::PhantomData;
 
 use crate::{
     arith::{Witness, CCCS, CCS, LCCCS},
+    commitment::AjtaiCommitmentScheme,
     parameters::DecompositionParams,
     transcript::Transcript,
-};
-use decomposition::{
-    DecompositionProof, DecompositionProver, DecompositionVerifier, LFDecompositionProver,
-    LFDecompositionVerifier,
 };
 use error::LatticefoldError;
 use folding::{FoldingProof, FoldingProver, FoldingVerifier, LFFoldingProver, LFFoldingVerifier};
@@ -48,7 +49,7 @@ pub struct NIFSProver<const C: usize, const W: usize, CR, NTT, P, T> {
 impl<
         const C: usize,
         const W: usize,
-        CR: PolyRing,
+        CR: PolyRing<BaseRing = NTT::BaseRing> + Into<NTT> + From<NTT>,
         NTT: OverField,
         P: DecompositionParams,
         T: Transcript<NTT>,
@@ -61,17 +62,21 @@ impl<
         w_i: &Witness<NTT>,
         transcript: &mut impl Transcript<NTT>,
         ccs: &CCS<NTT>,
+        scheme: &AjtaiCommitmentScheme<C, W, NTT>,
     ) -> Result<(LCCCS<C, NTT>, Witness<NTT>, LFProof<C, NTT>), LatticefoldError<NTT>> {
         let (linearized_cm_i, linearization_proof) =
             LFLinearizationProver::<_, T>::prove(cm_i, w_i, transcript, ccs)?;
         let (decomposed_lcccs_l, decomposed_wit_l, decomposition_proof_l) =
-            LFDecompositionProver::<_, T>::prove::<C, CR, P>(acc, w_acc, transcript, ccs)?;
+            LFDecompositionProver::<_, T>::prove::<W, C, CR, P>(
+                acc, w_acc, transcript, ccs, scheme,
+            )?;
         let (decomposed_lcccs_r, decomposed_wit_r, decomposition_proof_r) =
-            LFDecompositionProver::<_, T>::prove::<C, CR, P>(
+            LFDecompositionProver::<_, T>::prove::<W, C, CR, P>(
                 &linearized_cm_i,
                 w_i,
                 transcript,
                 ccs,
+                scheme,
             )?;
 
         let (lcccs, wit_s) = {

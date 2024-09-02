@@ -1,9 +1,6 @@
-use decomposition::{
-    DecompositionProof, DecompositionProver, DecompositionVerifier, LFDecompositionProver,
-    LFDecompositionVerifier,
-};
+use ark_std::marker::PhantomData;
+
 use lattirust_arithmetic::{challenge_set::latticefold_challenge_set::OverField, ring::PolyRing};
-use std::marker::PhantomData;
 
 use crate::{
     arith::{Witness, CCCS, CCS, LCCCS},
@@ -11,13 +8,16 @@ use crate::{
     parameters::DecompositionParams,
     transcript::Transcript,
 };
+use decomposition::{
+    DecompositionProof, DecompositionProver, DecompositionVerifier, LFDecompositionProver,
+    LFDecompositionVerifier,
+};
 use error::LatticefoldError;
 use folding::{FoldingProof, FoldingProver, FoldingVerifier, LFFoldingProver, LFFoldingVerifier};
 use linearization::{
     LFLinearizationProver, LFLinearizationVerifier, LinearizationProof, LinearizationProver,
     LinearizationVerifier,
 };
-
 pub mod decomposition;
 pub mod error;
 pub mod folding;

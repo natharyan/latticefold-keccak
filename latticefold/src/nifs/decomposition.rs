@@ -1,11 +1,12 @@
 #![allow(non_snake_case, clippy::upper_case_acronyms)]
 
+use ark_std::marker::PhantomData;
+
 use lattirust_arithmetic::{
     balanced_decomposition::{decompose_balanced_slice_polyring, pad_and_transpose, recompose},
     challenge_set::latticefold_challenge_set::OverField,
     ring::PolyRing,
 };
-use std::marker::PhantomData;
 
 use crate::{
     arith::{utils::mat_vec_mul, Witness, CCS, LCCCS},

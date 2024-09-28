@@ -1,5 +1,4 @@
 #![allow(non_snake_case, clippy::upper_case_acronyms)]
-
 use ark_std::marker::PhantomData;
 use lattirust_ring::{
     balanced_decomposition::{decompose_balanced_vec, pad_and_transpose, recompose},
@@ -279,7 +278,13 @@ fn decompose_big_vec_into_k_vec_and_compose_back<NTT: SuitableRing, DP: Decompos
         .into_iter()
         .map(|vec| {
             vec.chunks(DP::L)
-                .map(|chunk| recompose(chunk, NTT::BaseRing::from(DP::B)).into())
+                .map(|chunk| {
+                    recompose(
+                        chunk,
+                        <NTT as SuitableRing>::CoefficientRepresentation::from(DP::B),
+                    )
+                    .into()
+                })
                 .collect()
         })
         .collect()
@@ -299,7 +304,8 @@ fn decompose_B_vec_into_k_vec<NTT: SuitableRing, DP: DecompositionParams>(
 
 #[cfg(test)]
 mod tests {
-    use lattirust_ring::Pow2CyclotomicPolyRingNTT;
+    use lattirust_ring::cyclotomic_ring::models::pow2_debug::Pow2CyclotomicPolyRingNTT;
+
     use rand::thread_rng;
 
     use crate::{

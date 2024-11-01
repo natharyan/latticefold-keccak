@@ -1,4 +1,3 @@
-#![allow(non_snake_case)]
 use ark_ff::{Field, PrimeField};
 use ark_std::{marker::PhantomData, sync::Arc};
 use cyclotomic_rings::SuitableRing;
@@ -18,7 +17,6 @@ use crate::{
         sumcheck::{MLSumcheck, SumCheckError::SumCheckFailed},
     },
 };
-
 #[derive(Clone)]
 pub struct LinearizationProof<NTT: OverField> {
     // Sent in the step 2. of the linearization subprotocol
@@ -92,13 +90,13 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LinearizationProver<NTT, T>
 
         // Run sum check prover
         let (sum_check_proof, prover_state) = MLSumcheck::prove_as_subprotocol(transcript, &g);
+
         // Extract the evaluation point
         let r = prover_state
             .randomness
             .into_iter()
             .map(|x| x.into())
             .collect::<Vec<NTT>>();
-
         // Step 3: Compute v, u_vector
 
         let v = dense_vec_to_dense_mle(log_m, &wit.f_hat)
@@ -116,7 +114,6 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LinearizationProver<NTT, T>
             v,
             u: u.clone(),
         };
-
         let lcccs = LCCCS {
             r,
             v,
@@ -125,7 +122,6 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LinearizationProver<NTT, T>
             x_w: cm_i.x_ccs.clone(),
             h: NTT::one(),
         };
-
         Ok((lcccs, linearization_proof))
     }
 }
@@ -257,7 +253,7 @@ mod tests_pow2 {
     use rand::thread_rng;
 
     use crate::{
-        arith::{r1cs::tests::get_test_z_split, tests::get_test_ccs, Witness, CCCS},
+        arith::{r1cs::get_test_z_split, tests::get_test_ccs, Witness, CCCS},
         commitment::AjtaiCommitmentScheme,
         decomposition_parameters::DecompositionParams,
         nifs::linearization::{
@@ -350,12 +346,12 @@ mod tests_pow2 {
 
         let res = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
             &cm_i,
-            &res.unwrap().1,
+            &res.expect("Linearization proof generation error").1,
             &mut transcript,
             &ccs,
         );
 
-        res.unwrap();
+        res.expect("Linearization Verification error");
     }
 }
 
@@ -367,16 +363,22 @@ mod tests_stark {
         cyclotomic_ring::models::stark_prime::{Fq, RqNTT},
         PolyRing,
     };
+    use num_bigint::BigUint;
     use rand::thread_rng;
 
     use crate::{
-        arith::{r1cs::tests::get_test_z_split, tests::get_test_ccs, Witness, CCCS},
+        arith::{
+            r1cs::{get_test_dummy_z_split, get_test_z_split},
+            tests::{get_test_ccs, get_test_dummy_ccs},
+            Witness, CCCS,
+        },
         commitment::AjtaiCommitmentScheme,
         decomposition_parameters::DecompositionParams,
         nifs::linearization::{
             LFLinearizationProver, LFLinearizationVerifier, LinearizationVerifier,
         },
         transcript::poseidon::PoseidonTranscript,
+        utils::security_check::{check_ring_modulus_128_bits_security, check_witness_bound},
     };
     use cyclotomic_rings::StarkChallengeSet;
 
@@ -456,12 +458,82 @@ mod tests_stark {
 
         let res = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
             &cm_i,
-            &res.unwrap().1,
+            &res.expect("Linearization proof generation error").1,
             &mut transcript,
             &ccs,
         );
 
-        res.unwrap();
+        res.expect("Linearization Verification error");
+    }
+
+    #[test]
+    fn test_dummy_linearization() {
+        type R = RqNTT;
+        type CS = StarkChallengeSet;
+        type T = PoseidonTranscript<R, CS>;
+
+        #[derive(Clone)]
+        struct PP;
+        impl DecompositionParams for PP {
+            const B: u128 = 10485760000;
+            const L: usize = 8;
+            const B_SMALL: usize = 320;
+            const K: usize = 4;
+        }
+
+        const C: usize = 16;
+        const X_LEN: usize = 1;
+        const WIT_LEN: usize = 2048;
+        const W: usize = WIT_LEN * PP::L; // the number of columns of the Ajtai matrix
+        let r1cs_rows_size = X_LEN + WIT_LEN + 1; // Let's have a square matrix
+
+        let ccs = get_test_dummy_ccs::<R, X_LEN, WIT_LEN, W>(r1cs_rows_size);
+        let (_, x_ccs, w_ccs) = get_test_dummy_z_split::<R, X_LEN, WIT_LEN>();
+        let scheme = AjtaiCommitmentScheme::rand(&mut thread_rng());
+
+        let wit = Witness::from_w_ccs::<PP>(&w_ccs);
+
+        // Make bound and securitty checks
+        let witness_within_bound = check_witness_bound(&wit, PP::B);
+        let stark_modulus = BigUint::parse_bytes(
+            b"3618502788666131000275863779947924135206266826270938552493006944358698582017",
+            10,
+        )
+        .expect("Failed to parse stark_modulus");
+
+        if check_ring_modulus_128_bits_security(
+            &stark_modulus,
+            C,
+            16,
+            W,
+            PP::B,
+            PP::L,
+            witness_within_bound,
+        ) {
+            println!(" Bound condition satisfied for 128 bits security");
+        } else {
+            println!("Bound condition not satisfied for 128 bits security");
+        }
+
+        let cm_i = CCCS {
+            cm: wit.commit::<C, W, PP>(&scheme).unwrap(),
+            x_ccs,
+        };
+
+        let mut transcript = PoseidonTranscript::<R, CS>::default();
+
+        let res = LFLinearizationProver::<_, T>::prove(&cm_i, &wit, &mut transcript, &ccs);
+
+        let mut transcript = PoseidonTranscript::<R, CS>::default();
+
+        let res = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
+            &cm_i,
+            &res.expect("Linearization proof generation error").1,
+            &mut transcript,
+            &ccs,
+        );
+
+        res.expect("Linearization Verification error");
     }
 }
 
@@ -473,7 +545,7 @@ mod tests_goldilocks {
     use rand::thread_rng;
 
     use crate::{
-        arith::{r1cs::tests::get_test_z_split, tests::get_test_ccs, Witness, CCCS},
+        arith::{r1cs::get_test_z_split, tests::get_test_ccs, Witness, CCCS},
         commitment::AjtaiCommitmentScheme,
         decomposition_parameters::DecompositionParams,
         nifs::linearization::{
@@ -549,12 +621,12 @@ mod tests_goldilocks {
 
         let res = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
             &cm_i,
-            &res.unwrap().1,
+            &res.expect("Linearization proof generation error").1,
             &mut transcript,
             &ccs,
         );
 
-        res.unwrap();
+        res.expect("Linearization Verification error");
     }
 }
 
@@ -566,7 +638,11 @@ mod tests_frog {
     use rand::thread_rng;
 
     use crate::{
-        arith::{r1cs::tests::get_test_z_split, tests::get_test_ccs, Witness, CCCS},
+        arith::{
+            r1cs::{get_test_z, get_test_z_split},
+            tests::get_test_ccs,
+            Arith, Witness, CCCS,
+        },
         commitment::AjtaiCommitmentScheme,
         decomposition_parameters::DecompositionParams,
         nifs::linearization::{
@@ -625,6 +701,8 @@ mod tests_frog {
 
         let ccs = get_test_ccs::<R>(W);
         let (_, x_ccs, w_ccs) = get_test_z_split::<R>(3);
+        let z = get_test_z::<R>(3);
+        ccs.check_relation(&z).unwrap();
         let scheme = AjtaiCommitmentScheme::rand(&mut thread_rng());
         #[derive(Clone)]
         struct PP;
@@ -642,11 +720,11 @@ mod tests_frog {
 
         let res = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
             &cm_i,
-            &res.unwrap().1,
+            &res.expect("Linearization proof generation error").1,
             &mut transcript,
             &ccs,
         );
 
-        res.unwrap();
+        res.expect("Linearization Verification error");
     }
 }

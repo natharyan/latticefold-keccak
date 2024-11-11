@@ -2,12 +2,12 @@
 use ark_std::iter::successors;
 use ark_std::iterable::Iterable;
 use ark_std::marker::PhantomData;
-use cyclotomic_rings::SuitableRing;
+use cyclotomic_rings::rings::SuitableRing;
 use lattirust_ring::OverField;
 use utils::get_alphas_betas_zetas_mus;
 
 use super::error::FoldingError;
-use crate::transcript::TranscriptWithSmallChallenges;
+use crate::transcript::TranscriptWithShortChallenges;
 use crate::utils::sumcheck::{MLSumcheck, SumCheckError::SumCheckFailed};
 use crate::{
     arith::{utils::mat_vec_mul, Instance, Witness, CCS, LCCCS},
@@ -32,20 +32,20 @@ pub struct FoldingProof<NTT: OverField> {
     pub eta_s: Vec<Vec<NTT>>,
 }
 
-pub trait FoldingProver<NTT: SuitableRing, T: TranscriptWithSmallChallenges<NTT>> {
+pub trait FoldingProver<NTT: SuitableRing, T: TranscriptWithShortChallenges<NTT>> {
     fn prove<const C: usize, P: DecompositionParams>(
         cm_i_s: &[LCCCS<C, NTT>],
         w_s: &[Witness<NTT>],
-        transcript: &mut impl TranscriptWithSmallChallenges<NTT>,
+        transcript: &mut impl TranscriptWithShortChallenges<NTT>,
         ccs: &CCS<NTT>,
     ) -> Result<(LCCCS<C, NTT>, Witness<NTT>, FoldingProof<NTT>), FoldingError<NTT>>;
 }
 
-pub trait FoldingVerifier<NTT: SuitableRing, T: TranscriptWithSmallChallenges<NTT>> {
+pub trait FoldingVerifier<NTT: SuitableRing, T: TranscriptWithShortChallenges<NTT>> {
     fn verify<const C: usize, P: DecompositionParams>(
         cm_i_s: &[LCCCS<C, NTT>],
         proof: &FoldingProof<NTT>,
-        transcript: &mut impl TranscriptWithSmallChallenges<NTT>,
+        transcript: &mut impl TranscriptWithShortChallenges<NTT>,
         ccs: &CCS<NTT>,
     ) -> Result<LCCCS<C, NTT>, FoldingError<NTT>>;
 }
@@ -60,13 +60,13 @@ pub struct LFFoldingVerifier<NTT, T> {
     _t: PhantomData<T>,
 }
 
-impl<NTT: SuitableRing, T: TranscriptWithSmallChallenges<NTT>> FoldingProver<NTT, T>
+impl<NTT: SuitableRing, T: TranscriptWithShortChallenges<NTT>> FoldingProver<NTT, T>
     for LFFoldingProver<NTT, T>
 {
     fn prove<const C: usize, P: DecompositionParams>(
         cm_i_s: &[LCCCS<C, NTT>],
         w_s: &[Witness<NTT>],
-        transcript: &mut impl TranscriptWithSmallChallenges<NTT>,
+        transcript: &mut impl TranscriptWithShortChallenges<NTT>,
         ccs: &CCS<NTT>,
     ) -> Result<(LCCCS<C, NTT>, Witness<NTT>, FoldingProof<NTT>), FoldingError<NTT>> {
         if cm_i_s.len() != 2 * P::K {
@@ -207,13 +207,13 @@ impl<NTT: SuitableRing, T: TranscriptWithSmallChallenges<NTT>> FoldingProver<NTT
     }
 }
 
-impl<NTT: SuitableRing, T: TranscriptWithSmallChallenges<NTT>> FoldingVerifier<NTT, T>
+impl<NTT: SuitableRing, T: TranscriptWithShortChallenges<NTT>> FoldingVerifier<NTT, T>
     for LFFoldingVerifier<NTT, T>
 {
     fn verify<const C: usize, P: DecompositionParams>(
         cm_i_s: &[LCCCS<C, NTT>],
         proof: &FoldingProof<NTT>,
-        transcript: &mut impl TranscriptWithSmallChallenges<NTT>,
+        transcript: &mut impl TranscriptWithShortChallenges<NTT>,
         ccs: &CCS<NTT>,
     ) -> Result<LCCCS<C, NTT>, FoldingError<NTT>> {
         if cm_i_s.len() != 2 * P::K {
@@ -346,7 +346,7 @@ mod tests {
         },
         transcript::poseidon::PoseidonTranscript,
     };
-    use cyclotomic_rings::{StarkChallengeSet, StarkRingNTT};
+    use cyclotomic_rings::rings::{StarkChallengeSet, StarkRingNTT};
 
     // Boilerplate code to generate values needed for testing
     type R = StarkRingNTT;
@@ -515,7 +515,7 @@ mod tests_goldilocks {
         },
         transcript::poseidon::PoseidonTranscript,
     };
-    use cyclotomic_rings::{GoldilocksChallengeSet, GoldilocksRingNTT};
+    use cyclotomic_rings::rings::{GoldilocksChallengeSet, GoldilocksRingNTT};
 
     // Boilerplate code to generate values needed for testing
     type R = GoldilocksRingNTT;
@@ -694,7 +694,7 @@ mod tests_stark {
         },
         transcript::poseidon::PoseidonTranscript,
     };
-    use cyclotomic_rings::StarkChallengeSet;
+    use cyclotomic_rings::rings::StarkChallengeSet;
 
     #[test]
     fn test_dummy_folding() {

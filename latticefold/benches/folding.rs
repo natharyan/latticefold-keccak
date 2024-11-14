@@ -35,7 +35,7 @@ fn wit_and_ccs_gen<
     const WIT_LEN: usize,
     const W: usize, // columns
     P: DecompositionParams,
-    R: Clone + UniformRand + Debug + SuitableRing + for<'a> std::ops::AddAssign<&'a R>,
+    R: Clone + UniformRand + Debug + SuitableRing,
 >(
     r1cs_rows: usize,
 ) -> (
@@ -70,7 +70,7 @@ fn prover_folding_benchmark<
     const C: usize,
     const W: usize,
     P: DecompositionParams,
-    R: Clone + UniformRand + Debug + SuitableRing + for<'a> std::ops::AddAssign<&'a R>,
+    R: Clone + UniformRand + Debug + SuitableRing,
     CS: LatticefoldChallengeSet<R>,
 >(
     c: &mut criterion::BenchmarkGroup<criterion::measurement::WallTime>,
@@ -165,7 +165,7 @@ fn verifier_folding_benchmark<
     const C: usize,
     const W: usize,
     P: DecompositionParams,
-    R: Clone + UniformRand + Debug + SuitableRing + for<'a> std::ops::AddAssign<&'a R>,
+    R: Clone + UniformRand + Debug + SuitableRing,
     CS: LatticefoldChallengeSet<R>,
 >(
     c: &mut criterion::BenchmarkGroup<criterion::measurement::WallTime>,

@@ -126,10 +126,7 @@ macro_rules! generate_decomposition_tests {
             // Check that the decomposition is correct
             for i in 0..N {
                 let decomp_i = decomposed.iter().map(|d_j| d_j[i]).collect::<Vec<_>>();
-                assert_eq!(
-                    test_vector[i],
-                    recompose(&decomp_i, RqPoly::from(PP::B_SMALL as u128))
-                );
+                assert_eq!(test_vector[i], recompose(&decomp_i, PP::B_SMALL as u128));
             }
         }
 
@@ -184,15 +181,10 @@ macro_rules! generate_decomposition_tests {
             // Recompose first with B_SMALL, then with B
             transposed
                 .iter()
-                .map(|vec| {
-                    recompose(
-                        vec,
-                        NTT::CoefficientRepresentation::from(DP::B_SMALL as u128),
-                    )
-                })
+                .map(|vec| recompose(vec, DP::B_SMALL as u128))
                 .collect::<Vec<_>>()
                 .chunks(DP::L)
-                .map(|chunk| recompose(chunk, NTT::CoefficientRepresentation::from(DP::B)))
+                .map(|chunk| recompose(chunk, DP::B))
                 .collect()
         }
 

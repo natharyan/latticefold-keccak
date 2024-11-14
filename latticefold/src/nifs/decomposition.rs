@@ -1,8 +1,4 @@
 #![allow(non_snake_case, clippy::upper_case_acronyms)]
-use lattirust_poly::polynomials::DenseMultilinearExtension;
-use lattirust_ring::OverField;
-use utils::{decompose_B_vec_into_k_vec, decompose_big_vec_into_k_vec_and_compose_back};
-
 use crate::{
     arith::{utils::mat_vec_mul, Witness, CCS, LCCCS},
     commitment::AjtaiCommitmentScheme,
@@ -12,6 +8,9 @@ use crate::{
     transcript::Transcript,
 };
 use cyclotomic_rings::rings::SuitableRing;
+use lattirust_poly::polynomials::DenseMultilinearExtension;
+use lattirust_ring::OverField;
+use utils::{decompose_B_vec_into_k_vec, decompose_big_vec_into_k_vec_and_compose_back};
 
 use ark_std::{cfg_into_iter, cfg_iter};
 #[cfg(feature = "parallel")]

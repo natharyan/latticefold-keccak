@@ -124,7 +124,7 @@ macro_rules! generate_linearization_tests {
             let (_, x_ccs, w_ccs) = get_test_z_split::<R>(3);
             let scheme = AjtaiCommitmentScheme::rand(&mut thread_rng());
 
-            let wit: Witness<R> = Witness::from_w_ccs::<PP>(&w_ccs);
+            let wit: Witness<R> = Witness::from_w_ccs::<PP>(w_ccs);
             let cm_i: CCCS<4, R> = CCCS {
                 cm: wit.commit::<4, W, PP>(&scheme).unwrap(),
                 x_ccs,
@@ -166,7 +166,7 @@ macro_rules! generate_linearization_tests {
             let (_, x_ccs, w_ccs) = get_test_z_split::<R>(3);
             let scheme = AjtaiCommitmentScheme::rand(&mut thread_rng());
 
-            let wit: Witness<R> = Witness::from_w_ccs::<PP>(&w_ccs);
+            let wit: Witness<R> = Witness::from_w_ccs::<PP>(w_ccs);
             let cm_i: CCCS<4, R> = CCCS {
                 cm: wit.commit::<4, W, PP>(&scheme).unwrap(),
                 x_ccs,
@@ -221,7 +221,7 @@ mod tests_stark {
 
     use crate::{
         arith::{r1cs::get_test_dummy_z_split, tests::get_test_dummy_ccs},
-        utils::security_check::{check_ring_modulus_128_bits_security, check_witness_bound},
+        utils::security_check::check_ring_modulus_128_bits_security,
     };
     type CS = StarkChallengeSet;
     generate_linearization_tests!(1024, 2, 2, 10);
@@ -251,10 +251,10 @@ mod tests_stark {
         let (_, x_ccs, w_ccs) = get_test_dummy_z_split::<R, X_LEN, WIT_LEN>();
         let scheme = AjtaiCommitmentScheme::rand(&mut thread_rng());
 
-        let wit = Witness::from_w_ccs::<PP>(&w_ccs);
+        let wit = Witness::from_w_ccs::<PP>(w_ccs);
 
         // Make bound and securitty checks
-        let witness_within_bound = check_witness_bound(&wit, PP::B);
+        let witness_within_bound = wit.within_bound(PP::B);
         let stark_modulus = BigUint::parse_bytes(
             b"3618502788666131000275863779947924135206266826270938552493006944358698582017",
             10,

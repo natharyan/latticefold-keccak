@@ -1,6 +1,6 @@
 #![allow(non_snake_case, clippy::upper_case_acronyms)]
 use crate::{
-    arith::{utils::mat_vec_mul, Witness, CCS, LCCCS},
+    arith::{error::CSError, utils::mat_vec_mul, Witness, CCS, LCCCS},
     ark_base::*,
     commitment::{AjtaiCommitmentScheme, Commitment, CommitmentError},
     decomposition_parameters::DecompositionParams,
@@ -118,6 +118,7 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> DecompositionProver<NTT, T>
         ),
         DecompositionError,
     > {
+        sanity_check::<NTT, P>(ccs)?;
         let log_m = ccs.s;
 
         let wit_s: Vec<Witness<NTT>> = Self::decompose_witness::<P>(wit);
@@ -287,4 +288,14 @@ impl<NTT: OverField, T: Transcript<NTT>> DecompositionVerifier<NTT, T>
 
         Ok(lcccs_s)
     }
+}
+
+fn sanity_check<NTT: SuitableRing, DP: DecompositionParams>(
+    ccs: &CCS<NTT>,
+) -> Result<(), DecompositionError> {
+    if ccs.m != usize::max((ccs.n - ccs.l - 1) * DP::L, ccs.m).next_power_of_two() {
+        return Err(CSError::InvalidSizeBounds(ccs.m, ccs.n, DP::L).into());
+    }
+
+    Ok(())
 }

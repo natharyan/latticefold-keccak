@@ -18,6 +18,7 @@ use lattirust_ring::OverField;
 use utils::{decompose_B_vec_into_k_vec, decompose_big_vec_into_k_vec_and_compose_back};
 
 use ark_std::{cfg_into_iter, cfg_iter};
+
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -25,8 +26,10 @@ pub use structs::*;
 
 use super::mle_helpers::to_mles;
 mod structs;
+
 #[cfg(test)]
 mod tests;
+
 mod utils;
 
 impl<NTT: SuitableRing, T: Transcript<NTT>> DecompositionProver<NTT, T>
@@ -124,9 +127,7 @@ impl<NTT: OverField, T: Transcript<NTT>> DecompositionVerifier<NTT, T>
             });
         }
 
-        let b_s: Vec<_> = (0..P::K)
-            .map(|i| NTT::from((P::B_SMALL as u128).pow(i as u32)))
-            .collect();
+        let b_s: Vec<_> = Self::calculate_b_s::<P>();
 
         let should_equal_y0 = Self::recompose_commitment::<C>(&proof.y_s, &b_s)?;
 
@@ -302,6 +303,12 @@ impl<NTT: OverField, T: Transcript<NTT>> LFDecompositionVerifier<NTT, T> {
             .ok_or(DecompositionError::RecomposedError)?;
 
         Ok((should_equal_xw, should_equal_h))
+    }
+
+    fn calculate_b_s<P: DecompositionParams>() -> Vec<NTT> {
+        (0..P::K)
+            .map(|i| NTT::from((P::B_SMALL as u128).pow(i as u32)))
+            .collect()
     }
 }
 

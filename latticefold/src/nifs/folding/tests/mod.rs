@@ -10,7 +10,12 @@ use crate::nifs::folding::{
 };
 use crate::nifs::FoldingProof;
 use crate::transcript::{Transcript, TranscriptWithShortChallenges};
-use crate::utils::sumcheck::MLSumcheck;
+#[cfg(feature = "jolt-sumcheck")]
+use crate::utils::sumcheck::prover::ProverState;
+use crate::utils::sumcheck::{
+    virtual_polynomial::{eq_eval, VPAuxInfo},
+    MLSumcheck,
+};
 use crate::{
     arith::{r1cs::get_test_z_split, tests::get_test_ccs, Witness, CCCS},
     commitment::AjtaiCommitmentScheme,
@@ -36,7 +41,6 @@ use cyclotomic_rings::rings::{
     StarkChallengeSet, SuitableRing,
 };
 use lattirust_poly::mle::DenseMultilinearExtension;
-use lattirust_poly::polynomials::{eq_eval, VPAuxInfo};
 use lattirust_ring::cyclotomic_ring::models::{
     frog_ring::RqNTT as FrogRqNTT, goldilocks::RqNTT as GoldilocksRqNTT,
     stark_prime::RqNTT as StarkRqNTT,
@@ -470,7 +474,12 @@ fn test_get_sumcheck_randomness() {
     .unwrap();
 
     // Compute sumcheck proof
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(&mut transcript, &g);
+    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
+        &mut transcript,
+        &g,
+        #[cfg(feature = "jolt-sumcheck")]
+        ProverState::combine_product,
+    );
     // Derive randomness
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
@@ -513,7 +522,12 @@ fn test_get_thetas() {
         &mu_s,
     )
     .unwrap();
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(&mut transcript, &g);
+    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
+        &mut transcript,
+        &g,
+        #[cfg(feature = "jolt-sumcheck")]
+        ProverState::combine_product,
+    );
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
     );
@@ -570,7 +584,12 @@ fn test_get_etas() {
         &mu_s,
     )
     .unwrap();
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(&mut transcript, &g);
+    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
+        &mut transcript,
+        &g,
+        #[cfg(feature = "jolt-sumcheck")]
+        ProverState::combine_product,
+    );
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
     );
@@ -655,7 +674,12 @@ fn test_prepare_public_output() {
         &mu_s,
     )
     .unwrap();
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(&mut transcript, &g);
+    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
+        &mut transcript,
+        &g,
+        #[cfg(feature = "jolt-sumcheck")]
+        ProverState::combine_product,
+    );
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
     );
@@ -722,7 +746,12 @@ fn test_compute_f_0() {
         &mu_s,
     )
     .unwrap();
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(&mut transcript, &g);
+    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
+        &mut transcript,
+        &g,
+        #[cfg(feature = "jolt-sumcheck")]
+        ProverState::combine_product,
+    );
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
     );

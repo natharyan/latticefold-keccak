@@ -62,7 +62,7 @@ fn prover_folding_benchmark<
     )
     .unwrap();
 
-    let (_, wit_vec, decomposition_proof) =
+    let (mz_mles, _, wit_vec, decomposition_proof) =
         LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<W, C, P>(
             &lcccs,
             wit,
@@ -79,8 +79,7 @@ fn prover_folding_benchmark<
         ccs,
     )
     .unwrap();
-
-    let (lcccs, wit_s) = {
+    let (lcccs, wit_s, mz_mles) = {
         let mut lcccs = lcccs_vec.clone();
         let mut lcccs_r = lcccs_vec;
         lcccs.append(&mut lcccs_r);
@@ -89,8 +88,12 @@ fn prover_folding_benchmark<
         let mut wit_s_r = wit_vec;
         wit_s.append(&mut wit_s_r);
 
-        (lcccs, wit_s)
+        let mut mz_mles_vec = mz_mles.clone();
+        let mut mz_mles_r = mz_mles;
+        mz_mles_vec.append(&mut mz_mles_r);
+        (lcccs, wit_s, mz_mles_vec)
     };
+
     c.bench_with_input(
         BenchmarkId::new(
             "Folding Prover",
@@ -114,6 +117,7 @@ fn prover_folding_benchmark<
                         wit_vec,
                         &mut prover_transcript,
                         ccs,
+                        &mz_mles,
                     )
                     .unwrap();
                 },
@@ -155,7 +159,7 @@ fn verifier_folding_benchmark<
     )
     .expect("Failed to verify linearization proof");
 
-    let (_, wit_vec, decomposition_proof) =
+    let (mz_mles, _, wit_vec, decomposition_proof) =
         LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<W, C, P>(
             &lcccs,
             wit,
@@ -173,7 +177,7 @@ fn verifier_folding_benchmark<
     )
     .expect("Failed to verify decomposition proof");
 
-    let (lcccs, wit_s) = {
+    let (lcccs, wit_s, mz_mles) = {
         let mut lcccs = lcccs_vec.clone();
         let mut lcccs_r = lcccs_vec;
         lcccs.append(&mut lcccs_r);
@@ -182,7 +186,10 @@ fn verifier_folding_benchmark<
         let mut wit_s_r = wit_vec;
         wit_s.append(&mut wit_s_r);
 
-        (lcccs, wit_s)
+        let mut mz_mles_vec = mz_mles.clone();
+        let mut mz_mles_r = mz_mles;
+        mz_mles_vec.append(&mut mz_mles_r);
+        (lcccs, wit_s, mz_mles_vec)
     };
 
     let (_, _, folding_proof) = LFFoldingProver::<R, PoseidonTranscript<R, CS>>::prove::<C, P>(
@@ -190,6 +197,7 @@ fn verifier_folding_benchmark<
         wit_s,
         &mut prover_transcript,
         ccs,
+        &mz_mles,
     )
     .expect("Failed to generate folding proof");
 

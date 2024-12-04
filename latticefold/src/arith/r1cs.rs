@@ -1,3 +1,4 @@
+use cyclotomic_rings::rings::SuitableRing;
 use lattirust_linear_algebra::sparse_matrix::dense_matrix_u64_to_sparse;
 use lattirust_linear_algebra::SparseMatrix;
 use lattirust_ring::Ring;
@@ -158,7 +159,7 @@ pub fn create_dummy_identity_sparse_matrix<R: Ring>(
 }
 
 pub fn get_test_z<R: Ring>(input: usize) -> Vec<R> {
-    // z = (1, io, w)
+    // z = (io, 1, w)
     to_F_vec(vec![
         input, // io
         1,
@@ -169,20 +170,40 @@ pub fn get_test_z<R: Ring>(input: usize) -> Vec<R> {
     ])
 }
 
-pub fn get_test_z_split<R: Ring>(input: usize) -> (R, Vec<R>, Vec<R>) {
-    // z = (1, io, w)
-    (
-        R::one(),
-        to_F_vec(vec![
+pub fn get_test_z_ntt<R: SuitableRing>() -> Vec<R> {
+    let mut res = Vec::new();
+    for input in 0..R::dimension() {
+        // z = (io, 1, w)
+        res.push(to_F_vec::<R::BaseRing>(vec![
             input, // io
-        ]),
-        to_F_vec(vec![
+            1,
             input * input * input + input + 5, // x^3 + x + 5
             input * input,                     // x^2
             input * input * input,             // x^2 * x
             input * input * input + input,     // x^3 + x
-        ]),
-    )
+        ]))
+    }
+
+    let mut ret: Vec<R> = Vec::new();
+    for j in 0..res[0].len() {
+        let mut vec = Vec::new();
+        for witness in &res {
+            vec.push(witness[j]);
+        }
+        ret.push(R::from(vec));
+    }
+
+    ret
+}
+
+pub fn get_test_z_split<R: Ring>(input: usize) -> (R, Vec<R>, Vec<R>) {
+    let z = get_test_z(input);
+    (z[1], vec![z[0]], z[2..].to_vec())
+}
+
+pub fn get_test_z_ntt_split<R: SuitableRing>() -> (R, Vec<R>, Vec<R>) {
+    let z = get_test_z_ntt();
+    (z[1], vec![z[0]], z[2..].to_vec())
 }
 
 pub fn get_test_dummy_z_split<R: Ring, const X_LEN: usize, const WIT_LEN: usize>(

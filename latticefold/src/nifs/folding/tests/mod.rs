@@ -1,6 +1,8 @@
 use crate::arith::{CCS, LCCCS};
 use crate::ark_base::Vec;
-use crate::decomposition_parameters::test_params::{BabyBearDP, StarkFoldingDP, DP};
+use crate::decomposition_parameters::test_params::{
+    BabyBearDP, FrogDP, GoldilocksDP, StarkFoldingDP,
+};
 use crate::nifs::folding::utils::SqueezeAlphaBetaZetaMu;
 use crate::nifs::folding::{
     prepare_public_output,
@@ -13,7 +15,7 @@ use crate::transcript::{Transcript, TranscriptWithShortChallenges};
 use crate::utils::sumcheck::prover::ProverState;
 use crate::utils::sumcheck::{virtual_polynomial::VPAuxInfo, MLSumcheck};
 use crate::{
-    arith::{r1cs::get_test_z_split, tests::get_test_ccs, Witness, CCCS},
+    arith::{r1cs::get_test_z_ntt_split, tests::get_test_ccs, Witness, CCCS},
     commitment::AjtaiCommitmentScheme,
     decomposition_parameters::DecompositionParams,
     nifs::{
@@ -45,7 +47,6 @@ use lattirust_ring::cyclotomic_ring::models::{
 use lattirust_ring::cyclotomic_ring::{CRT, ICRT};
 use lattirust_ring::Ring;
 use num_traits::{One, Zero};
-use rand::Rng;
 
 const C: usize = 4;
 const WIT_LEN: usize = 4;
@@ -66,8 +67,10 @@ where
     DP: DecompositionParams,
 {
     let ccs = get_test_ccs::<RqNTT>(W, DP::L);
+
     let mut rng = test_rng();
-    let (_, x_ccs, w_ccs) = get_test_z_split::<RqNTT>(rng.gen_range(0..64));
+    let (_, x_ccs, w_ccs) = get_test_z_ntt_split::<RqNTT>();
+
     let scheme = AjtaiCommitmentScheme::rand(&mut rng);
 
     let wit = Witness::from_w_ccs::<DP>(w_ccs);
@@ -129,7 +132,7 @@ where
     };
 
     let folding_proof = if generate_proof {
-        Some(generate_folding_proof(
+        Some(generate_folding_proof::<_, _, C, DP>(
             &ccs,
             &mut prover_transcript,
             &lcccs,
@@ -150,7 +153,7 @@ where
     )
 }
 
-fn generate_folding_proof<RqNTT, CS, const C: usize>(
+fn generate_folding_proof<RqNTT, CS, const C: usize, DP>(
     ccs: &CCS<RqNTT>,
     prover_transcript: &mut PoseidonTranscript<RqNTT, CS>,
     lcccs: &[LCCCS<C, RqNTT>],
@@ -160,6 +163,7 @@ fn generate_folding_proof<RqNTT, CS, const C: usize>(
 where
     RqNTT: SuitableRing,
     CS: LatticefoldChallengeSet<RqNTT>,
+    DP: DecompositionParams,
 {
     let (_, _, folding_proof) = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove::<
         C,
@@ -655,6 +659,7 @@ fn test_full_prove() {
 fn test_proof_serialization() {
     type RqNTT = GoldilocksRqNTT;
     type CS = GoldilocksChallengeSet;
+    type DP = GoldilocksDP;
     const W: usize = WIT_LEN * DP::L;
 
     let (_, _, _, _, proof, _) = setup_test_environment::<RqNTT, CS, DP, C, W>(true);
@@ -680,6 +685,7 @@ fn test_proof_serialization() {
 fn test_verify_evaluation() {
     type RqNTT = GoldilocksRqNTT;
     type CS = GoldilocksChallengeSet;
+    type DP = GoldilocksDP;
     const W: usize = WIT_LEN * DP::L;
 
     let (lccs_vec, _, mut transcript, ccs, proof, _) =
@@ -723,6 +729,7 @@ fn test_verify_evaluation() {
 fn test_calculate_claims() {
     type RqNTT = GoldilocksRqNTT;
     type CS = GoldilocksChallengeSet;
+    type DP = GoldilocksDP;
     const W: usize = WIT_LEN * DP::L;
 
     let (lcccs_vec, _, _, _, _, _) = setup_test_environment::<RqNTT, CS, DP, C, W>(false);
@@ -756,6 +763,8 @@ fn test_calculate_claims() {
 fn test_verify_sumcheck_proof() {
     type RqNTT = FrogRqNTT;
     type CS = FrogChallengeSet;
+    type DP = FrogDP;
+
     const W: usize = WIT_LEN * DP::L;
 
     let (lcccs_vec, _, mut transcript, ccs, proof, _) =
@@ -791,7 +800,7 @@ fn test_verify_sumcheck_proof() {
 fn test_full_verify() {
     type RqNTT = GoldilocksRqNTT;
     type CS = GoldilocksChallengeSet;
-
+    type DP = GoldilocksDP;
     const W: usize = WIT_LEN * DP::L;
 
     let (lccs_vec, _, mut transcript, ccs, proof, _) =

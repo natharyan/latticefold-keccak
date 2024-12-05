@@ -1,4 +1,21 @@
 #[macro_export]
+macro_rules! define_params {
+    ($w:expr, $b:expr, $l:expr, $b_small:expr, $k:expr) => {
+        paste::paste! {
+            #[derive(Clone)]
+            struct [<DecompParamsWithB $b W $w b $b_small K $k>];
+
+            impl DecompositionParams for [<DecompParamsWithB $b W $w b $b_small K $k>] {
+                const B: u128 = $b;
+                const L: usize = $l;
+                const B_SMALL: usize = $b_small;
+                const K: usize = $k;
+            }
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! run_goldilocks_benchmarks {
     ($group: ident) => {
         // Parameters Criterion, X_LEN, C, W, B, L, B_small, K

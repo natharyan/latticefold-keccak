@@ -378,7 +378,7 @@ macro_rules! run_single_frog_non_scalar_benchmark {
 }
 
 fn benchmarks_main(c: &mut Criterion) {
-    // Godlilocks
+    // Goldilocks
     {
         let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
         let mut group = c.benchmark_group("Folding Goldilocks");
@@ -389,7 +389,7 @@ fn benchmarks_main(c: &mut Criterion) {
         }
     }
 
-    // Godlilocks
+    // Godlilocks non scalar
     {
         let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
         let mut group = c.benchmark_group("Folding Goldilocks non scalar");

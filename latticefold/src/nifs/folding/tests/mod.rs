@@ -6,14 +6,14 @@ use crate::decomposition_parameters::test_params::{
 use crate::nifs::folding::utils::SqueezeAlphaBetaZetaMu;
 use crate::nifs::folding::{
     prepare_public_output,
-    utils::{compute_v0_u0_x0_cm_0, create_sumcheck_polynomial, get_rhos},
+    utils::{
+        compute_v0_u0_x0_cm_0, create_sumcheck_polynomial, get_rhos, sumcheck_polynomial_comb_fn,
+    },
     FoldingProver, FoldingVerifier, LFFoldingProver, LFFoldingVerifier,
 };
 use crate::nifs::FoldingProof;
 use crate::transcript::{Transcript, TranscriptWithShortChallenges};
-#[cfg(feature = "jolt-sumcheck")]
-use crate::utils::sumcheck::prover::ProverState;
-use crate::utils::sumcheck::{virtual_polynomial::VPAuxInfo, MLSumcheck};
+use crate::utils::sumcheck::MLSumcheck;
 use crate::{
     arith::{r1cs::get_test_z_ntt_split, tests::get_test_ccs, Witness, CCCS},
     commitment::AjtaiCommitmentScheme,
@@ -257,7 +257,7 @@ fn test_get_sumcheck_randomness() {
             &zeta_s[DP::K..2 * DP::K],
         )
         .unwrap();
-    let g = create_sumcheck_polynomial::<_, DP>(
+    let (g_mles, g_degree) = create_sumcheck_polynomial::<_, DP>(
         ccs.s,
         &f_hat_mles,
         &alpha_s,
@@ -269,24 +269,19 @@ fn test_get_sumcheck_randomness() {
     )
     .unwrap();
 
+    let comb_fn =
+        |vals: &[RqNTT]| -> RqNTT { sumcheck_polynomial_comb_fn::<RqNTT, DP>(vals, &mu_s) };
+
     // Compute sumcheck proof
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
-        &mut transcript,
-        &g,
-        #[cfg(feature = "jolt-sumcheck")]
-        ProverState::combine_product,
-    );
+    let (_, prover_state) =
+        MLSumcheck::prove_as_subprotocol(&mut transcript, &g_mles, ccs.s, g_degree, comb_fn);
     // Derive randomness
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
     );
 
     // Validate - Check dimensions
-    assert_eq!(
-        r_0.len(),
-        g.aux_info.num_variables,
-        "Randomness r_0 has the wrong length"
-    );
+    assert_eq!(r_0.len(), ccs.s, "Randomness r_0 has the wrong length");
 }
 
 #[test]
@@ -317,7 +312,7 @@ fn test_get_thetas() {
             &zeta_s[DP::K..2 * DP::K],
         )
         .unwrap();
-    let g = create_sumcheck_polynomial::<_, DP>(
+    let (g_mles, g_degree) = create_sumcheck_polynomial::<_, DP>(
         ccs.s,
         &f_hat_mles,
         &alpha_s,
@@ -329,13 +324,11 @@ fn test_get_thetas() {
     )
     .unwrap();
 
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
-        &mut transcript,
-        &g,
-        #[cfg(feature = "jolt-sumcheck")]
-        ProverState::combine_product,
-    );
+    let comb_fn =
+        |vals: &[RqNTT]| -> RqNTT { sumcheck_polynomial_comb_fn::<RqNTT, DP>(vals, &mu_s) };
 
+    let (_, prover_state) =
+        MLSumcheck::prove_as_subprotocol(&mut transcript, &g_mles, ccs.s, g_degree, comb_fn);
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
     );
@@ -391,7 +384,7 @@ fn test_get_etas() {
             &zeta_s[DP::K..2 * DP::K],
         )
         .unwrap();
-    let g = create_sumcheck_polynomial::<_, DP>(
+    let (g_mles, g_degree) = create_sumcheck_polynomial::<_, DP>(
         ccs.s,
         &f_hat_mles,
         &alpha_s,
@@ -403,13 +396,11 @@ fn test_get_etas() {
     )
     .unwrap();
 
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
-        &mut transcript,
-        &g,
-        #[cfg(feature = "jolt-sumcheck")]
-        ProverState::combine_product,
-    );
+    let comb_fn =
+        |vals: &[RqNTT]| -> RqNTT { sumcheck_polynomial_comb_fn::<RqNTT, DP>(vals, &mu_s) };
 
+    let (_, prover_state) =
+        MLSumcheck::prove_as_subprotocol(&mut transcript, &g_mles, ccs.s, g_degree, comb_fn);
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
     );
@@ -493,7 +484,7 @@ fn test_prepare_public_output() {
             &zeta_s[DP::K..2 * DP::K],
         )
         .unwrap();
-    let g = create_sumcheck_polynomial::<_, DP>(
+    let (g_mles, g_degree) = create_sumcheck_polynomial::<_, DP>(
         ccs.s,
         &f_hat_mles,
         &alpha_s,
@@ -505,13 +496,11 @@ fn test_prepare_public_output() {
     )
     .unwrap();
 
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
-        &mut transcript,
-        &g,
-        #[cfg(feature = "jolt-sumcheck")]
-        ProverState::combine_product,
-    );
+    let comb_fn =
+        |vals: &[RqNTT]| -> RqNTT { sumcheck_polynomial_comb_fn::<RqNTT, DP>(vals, &mu_s) };
 
+    let (_, prover_state) =
+        MLSumcheck::prove_as_subprotocol(&mut transcript, &g_mles, ccs.s, g_degree, comb_fn);
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
     );
@@ -576,7 +565,7 @@ fn test_compute_f_0() {
             &zeta_s[DP::K..2 * DP::K],
         )
         .unwrap();
-    let g = create_sumcheck_polynomial::<_, DP>(
+    let (g_mles, g_degree) = create_sumcheck_polynomial::<_, DP>(
         ccs.s,
         &f_hat_mles,
         &alpha_s,
@@ -588,13 +577,11 @@ fn test_compute_f_0() {
     )
     .unwrap();
 
-    let (_, prover_state) = MLSumcheck::prove_as_subprotocol(
-        &mut transcript,
-        &g,
-        #[cfg(feature = "jolt-sumcheck")]
-        ProverState::combine_product,
-    );
+    let comb_fn =
+        |vals: &[RqNTT]| -> RqNTT { sumcheck_polynomial_comb_fn::<RqNTT, DP>(vals, &mu_s) };
 
+    let (_, prover_state) =
+        MLSumcheck::prove_as_subprotocol(&mut transcript, &g_mles, ccs.s, g_degree, comb_fn);
     let r_0 = LFFoldingProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::get_sumcheck_randomness(
         prover_state,
     );
@@ -694,7 +681,8 @@ fn test_verify_evaluation() {
 
     let (alpha_s, beta_s, zeta_s, mu_s) = transcript.squeeze_alpha_beta_zeta_mu::<DP>(ccs.s);
 
-    let poly_info = VPAuxInfo::new(ccs.s, 2 * DP::B_SMALL);
+    let nvars = ccs.s;
+    let degree = 2 * DP::B_SMALL;
 
     let (claim_g1, claim_g3) =
         LFFoldingVerifier::<RqNTT, PoseidonTranscript<RqNTT, CS>>::calculate_claims::<C>(
@@ -704,7 +692,8 @@ fn test_verify_evaluation() {
     let (r_0, expected_evaluation) =
         LFFoldingVerifier::<RqNTT, PoseidonTranscript<RqNTT, CS>>::verify_sumcheck_proof(
             &mut transcript,
-            &poly_info,
+            nvars,
+            degree,
             claim_g1 + claim_g3,
             &proof,
         )
@@ -773,7 +762,8 @@ fn test_verify_sumcheck_proof() {
 
     let (alpha_s, _, zeta_s, _) = transcript.squeeze_alpha_beta_zeta_mu::<DP>(ccs.s);
 
-    let poly_info = VPAuxInfo::new(ccs.s, 2 * DP::B_SMALL);
+    let nvars = ccs.s;
+    let degree = 2 * DP::B_SMALL;
 
     let (claim_g1, claim_g3) =
         LFFoldingVerifier::<RqNTT, PoseidonTranscript<RqNTT, CS>>::calculate_claims::<C>(
@@ -782,7 +772,8 @@ fn test_verify_sumcheck_proof() {
 
     let result = LFFoldingVerifier::<RqNTT, PoseidonTranscript<RqNTT, CS>>::verify_sumcheck_proof(
         &mut transcript,
-        &poly_info,
+        nvars,
+        degree,
         claim_g1 + claim_g3,
         &proof,
     );

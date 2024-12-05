@@ -1,7 +1,7 @@
 use super::*;
 use crate::arith::utils::mat_vec_mul;
 use crate::decomposition_parameters::test_params::{BabyBearDP, FrogDP, GoldilocksDP, StarkDP};
-use crate::nifs::linearization::utils::SqueezeBeta;
+use crate::nifs::linearization::utils::{sumcheck_polynomial_comb_fn, SqueezeBeta};
 use crate::{
     arith::{r1cs::get_test_z_split, tests::get_test_ccs},
     commitment::AjtaiCommitmentScheme,
@@ -77,7 +77,7 @@ fn test_construct_polynomial() {
     let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
-    let (g, mz_mles) =
+    let (_, g_degree, mz_mles) =
         LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::construct_polynomial_g(
             &z_ccs,
             &mut transcript,
@@ -89,7 +89,7 @@ fn test_construct_polynomial() {
     assert_eq!(mz_mles.len(), ccs.t);
 
     // Check degree of g
-    assert!(g.aux_info.max_degree <= ccs.q + 1)
+    assert!(g_degree <= ccs.q + 1)
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn test_generate_sumcheck() {
     let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
-    let (g, _) =
+    let (g_mles, g_degree, _) =
         LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::construct_polynomial_g(
             &z_ccs,
             &mut transcript,
@@ -111,12 +111,15 @@ fn test_generate_sumcheck() {
         )
         .unwrap();
 
+    let comb_fn = |vals: &[RqNTT]| -> RqNTT { sumcheck_polynomial_comb_fn::<RqNTT>(vals, &ccs) };
+
     let (_, point_r) =
         LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::generate_sumcheck_proof(
-            &g,
             &mut transcript,
-            #[cfg(feature = "jolt-sumcheck")]
-            ProverState::combine_product,
+            &g_mles,
+            ccs.s,
+            g_degree,
+            comb_fn,
         )
         .unwrap();
 
@@ -132,7 +135,7 @@ fn prepare_test_vectors<RqNTT: SuitableRing, CS: LatticefoldChallengeSet<RqNTT>>
     let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
-    let (g, Mz_mles) =
+    let (g_mles, g_degree, Mz_mles) =
         LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::construct_polynomial_g(
             &z_ccs,
             &mut transcript,
@@ -140,12 +143,15 @@ fn prepare_test_vectors<RqNTT: SuitableRing, CS: LatticefoldChallengeSet<RqNTT>>
         )
         .unwrap();
 
+    let comb_fn = |vals: &[RqNTT]| -> RqNTT { sumcheck_polynomial_comb_fn::<RqNTT>(vals, ccs) };
+
     let (_, point_r) =
         LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::generate_sumcheck_proof(
-            &g,
             &mut transcript,
-            #[cfg(feature = "jolt-sumcheck")]
-            ProverState::combine_product,
+            &g_mles,
+            ccs.s,
+            g_degree,
+            comb_fn,
         )
         .unwrap();
 

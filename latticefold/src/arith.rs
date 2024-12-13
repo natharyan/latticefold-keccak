@@ -1,3 +1,5 @@
+//! The arith module provides utility for operating with arithmetic constraint systems.
+
 #![allow(non_snake_case)]
 
 use core::mem;
@@ -27,6 +29,11 @@ pub mod error;
 pub mod r1cs;
 pub mod utils;
 
+/// A trait for defining the behaviour of an arithmetic constraint system.
+///
+/// ## Type Parameters
+///
+///  * `R: Ring` - the ring algebra over which the constraint system operates
 pub trait Arith<R: Ring> {
     /// Checks that the given Arith structure is satisfied by a z vector. Used only for testing.
     fn check_relation(&self, z: &[R]) -> Result<(), Error>;
@@ -56,7 +63,6 @@ pub struct CCS<R: Ring> {
     pub s: usize,
     /// s_prime = log(n), dimension of y
     pub s_prime: usize,
-
     /// vector of matrices
     pub M: Vec<SparseMatrix<R>>,
     /// vector of multisets
@@ -141,6 +147,8 @@ impl<R: Ring> CCS<R> {
         ccs
     }
 
+    ///Constructs a [`R1CS`] instance from a [`CCS`] instance.
+    // TODO check that this is actually valid R1CS and make this return a result
     pub fn to_r1cs(self) -> R1CS<R> {
         R1CS::<R> {
             l: self.l,
@@ -162,33 +170,64 @@ impl<R: Ring> CCS<R> {
     }
 }
 
+/// A representation of a CCS witness commitment and statement.
+///
+/// # Type Parameters
+/// - `C`: The length of the commitment vector.
+/// - `R`: The ring in which the CCS is operating.
+///
 #[derive(Debug, Clone, PartialEq)]
 pub struct CCCS<const C: usize, R: Ring> {
+    /// A commitment to the B-decomposed CCS witness.
     pub cm: Commitment<C, R>,
+    /// A CCS statement
     pub x_ccs: Vec<R>,
 }
 
+/// A representation a linearized CCS witness commitment and statement.
+///
+/// # Type Parameters
+/// - `C`: The length of the commitment vector.
+/// - `R`: The ring in which the CCS is operating.
+///
 #[derive(Debug, Clone, PartialEq)]
 pub struct LCCCS<const C: usize, R: Ring> {
+    /// The linearization sumcheck challenge vector
     pub r: Vec<R>,
+    /// The evaluation of the linearized CCS commitment at `r`.
     pub v: Vec<R>,
+    /// The commitment to the B-decomposed CCS witness.
     pub cm: Commitment<C, R>,
+    /// The evaluation of the MLEs of $\\{ M_j \mathbf{z} \mid j = 1, 2, \dots, t \\}$ at `r`.
     pub u: Vec<R>,
+    /// The CCS statement
     pub x_w: Vec<R>,
+    /// Constant term of the z-vector
     pub h: R,
 }
 
+/// A representation of a CCS witness.
+///
+/// # Type Parameters
+/// - `NTT`: The ring in which the CCS is operating.
+///
 #[derive(Debug, Clone, PartialEq)]
 pub struct Witness<NTT: SuitableRing> {
-    /// f is B-decomposed CCS witness
-    pub f: Vec<NTT>,
-    pub f_coeff: Vec<NTT::CoefficientRepresentation>,
-    /// NTT(f_hat) = Coeff(coefficient representation of f)
-    pub f_hat: Vec<DenseMultilinearExtension<NTT>>,
+    /// `w_ccs` is the original CCS witness.
     pub w_ccs: Vec<NTT>,
+    /// `f` is B-decomposed CCS witness in NTT form
+    pub f: Vec<NTT>,
+    /// `f_coeff` is a gadget-decomposed witness slice in the coefficient form.
+    pub f_coeff: Vec<NTT::CoefficientRepresentation>,
+    /// See full description of f_hat [here](crate::arith::Witness::get_fhat).
+    pub f_hat: Vec<DenseMultilinearExtension<NTT>>,
 }
 
 impl<NTT: SuitableRing> Witness<NTT> {
+    /// Create a [`Witness`] from a ccs witness.
+    ///
+    /// The main operations that need to be done are decomposing the ccs witness.
+    /// We can then construct [`f_hat`](crate::arith::Witness::get_fhat).
     pub fn from_w_ccs<P: DecompositionParams>(w_ccs: Vec<NTT>) -> Self {
         // iNTT
         let w_coeff: Vec<NTT::CoefficientRepresentation> = ICRT::elementwise_icrt(w_ccs.clone());
@@ -257,7 +296,7 @@ impl<NTT: SuitableRing> Witness<NTT> {
         fhat
     }
 
-    pub fn from_f<P: DecompositionParams>(f: Vec<NTT>) -> Self {
+    pub(crate) fn from_f<P: DecompositionParams>(f: Vec<NTT>) -> Self {
         let f_coeff: Vec<NTT::CoefficientRepresentation> = ICRT::elementwise_icrt(f.clone());
         let f_hat: Vec<DenseMultilinearExtension<NTT>> = Self::get_fhat(&f_coeff);
         // Reconstruct the original CCS witness from the Ajtai witness
@@ -273,16 +312,18 @@ impl<NTT: SuitableRing> Witness<NTT> {
         }
     }
 
-    pub fn from_f_slice<P: DecompositionParams>(f: &[NTT]) -> Self {
+    #[allow(dead_code)]
+    fn from_f_slice<P: DecompositionParams>(f: &[NTT]) -> Self {
         Self::from_f::<P>(f.into())
     }
 
+    /// Reconstruct the original CCS witness from the Ajtai witness
+    ///
+    /// Assume that Ajtai witness has bound B.
+    /// We can multiply by the base B gadget matrix to reconstruct w_ccs.
     pub fn from_f_coeff<P: DecompositionParams>(
         f_coeff: Vec<NTT::CoefficientRepresentation>,
     ) -> Self {
-        // Reconstruct the original CCS witness from the Ajtai witness
-        // Ajtai witness has bound B
-        // WE multiply by the base B gadget matrix to reconstruct w_ccs
         let f: Vec<NTT> = CRT::elementwise_crt(f_coeff.clone());
         let f_hat: Vec<DenseMultilinearExtension<NTT>> = Self::get_fhat(&f_coeff);
 
@@ -310,6 +351,9 @@ impl<NTT: SuitableRing> Witness<NTT> {
         Self::from_w_ccs::<P>((0..w_ccs_len).map(|_| NTT::rand(rng)).collect())
     }
 
+    /// Produces a commitment from a witness
+    ///
+    /// Ajtai commitments are produced by multiplying an Ajtai matrix by the witness vector
     pub fn commit<const C: usize, const W: usize, P: DecompositionParams>(
         &self,
         ajtai: &AjtaiCommitmentScheme<C, W, NTT>,
@@ -317,11 +361,15 @@ impl<NTT: SuitableRing> Witness<NTT> {
         ajtai.commit_ntt(&self.f)
     }
 
+    /// Takes the `f_hat` value.
+    ///
+    /// Leaves the value in the struct as `None`.
     pub fn take_f_hat(&mut self) -> Vec<DenseMultilinearExtension<NTT>> {
         mem::take(&mut self.f_hat)
     }
 
-    pub fn within_bound(&self, b: u128) -> bool {
+    #[allow(dead_code)]
+    fn within_bound(&self, b: u128) -> bool {
         // TODO consider using signed representatives instead
 
         let coeffs_repr: Vec<NTT::CoefficientRepresentation> =
@@ -338,7 +386,13 @@ impl<NTT: SuitableRing> Witness<NTT> {
     }
 }
 
+/// A trait for defining the behaviour of a satisfying instance of a constraint system
+///
+/// # Types
+///  - `R: Ring` - the ring in which the constraint system is operating.
+///
 pub trait Instance<R: Ring> {
+    /// Given a witness vector, produce a concatonation of the statement and the witness
     fn get_z_vector(&self, w: &[R]) -> Vec<R>;
 }
 
@@ -372,7 +426,7 @@ pub mod tests {
 
     use super::*;
     use crate::{
-        arith::r1cs::{get_test_dummy_r1cs, get_test_r1cs, get_test_z as r1cs_get_test_z},
+        arith::r1cs::{get_test_r1cs, get_test_z as r1cs_get_test_z},
         decomposition_parameters::test_params::{BabyBearDP, GoldilocksDP, StarkDP},
     };
     use cyclotomic_rings::rings::{
@@ -380,24 +434,16 @@ pub mod tests {
     };
     use lattirust_ring::cyclotomic_ring::models::goldilocks::{Fq, Fq3};
 
-    pub fn get_test_ccs<R: Ring>(W: usize, L: usize) -> CCS<R> {
+    pub(crate) fn get_test_ccs<R: Ring>(W: usize, L: usize) -> CCS<R> {
         let r1cs = get_test_r1cs::<R>();
         CCS::<R>::from_r1cs_padded(r1cs, W, L)
     }
 
-    pub fn get_test_z<R: Ring>(input: usize) -> Vec<R> {
+    pub(crate) fn get_test_z<R: Ring>(input: usize) -> Vec<R> {
         r1cs_get_test_z(input)
     }
 
-    pub fn get_test_dummy_ccs<R: Ring, const X_LEN: usize, const WIT_LEN: usize, const W: usize>(
-        rows_size: usize,
-        L: usize,
-    ) -> CCS<R> {
-        let r1cs = get_test_dummy_r1cs::<R, X_LEN, WIT_LEN>(rows_size);
-        CCS::<R>::from_r1cs_padded(r1cs, W, L)
-    }
-
-    /// Test that a basic CCS relation can be satisfied
+    /// Test that a basic CCS relation is satisfied by a witness
     #[test]
     fn test_ccs_relation() {
         let ccs = get_test_ccs::<BabyBearRingNTT>(4, 1);

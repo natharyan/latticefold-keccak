@@ -22,7 +22,29 @@ use crate::{
 use lattirust_poly::mle::DenseMultilinearExtension;
 use lattirust_ring::{OverField, PolyRing};
 
+/// A trait for squeezing challenges (`alpha`, `beta`, `zeta`, `mu`) from a cryptographic sponge.
+///
+///
+/// # Type Parameters
+/// - `NTT`: A type that implements the `SuitableRing` trait, representing a ring that can be used in the
+///     LatticeFold protocol.
+///
 pub(crate) trait SqueezeAlphaBetaZetaMu<NTT: SuitableRing> {
+    /// Extracts the cryptographic challenge vectors of provided length
+    ///
+    /// ### Arguments
+    /// - `log_m`: The length of the $\beta$ challenge vector.
+    ///
+    /// ### Type Parameters
+    /// - `P`: The decomposition parameters of the protocol.
+    ///
+    /// ### Returns
+    /// - `(Vec<NTT>, Vec<NTT>, Vec<NTT>, Vec<NTT>)`: A tuple containing four challenge vectors:
+    ///   - `alpha`: A challenge vector of length $2 \cdot k$, where $k$ is defined in the decomposition parameters.
+    ///   - `beta`: A challenge vector of length `log_m`.
+    ///   - `zeta`: A challenge vector of length $2 \cdot k$, where $k$ is defined in the decomposition parameters.
+    ///   - `mu`: A challenge vector of length $2 \cdot k$, where $k$ is defined in the decomposition parameters.
+    ///
     fn squeeze_alpha_beta_zeta_mu<P: DecompositionParams>(
         &mut self,
         log_m: usize,
@@ -76,6 +98,24 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> SqueezeAlphaBetaZetaMu<NTT> for T {
     }
 }
 
+/// Generates `rho` values based on the provided transcript and decomposition parameters.
+///
+/// This function is used within the module to extract or compute values required for further
+/// operations, based on the interaction with a transcript that supports short challenges.
+///
+/// # Type Parameters
+/// - `R`: A ring suitable to be used in the LatticeFold protocol.
+/// - `T`: A type implementing a cryptographic sponge construction.
+/// - `P`: The decomposition parameters of the protocol.
+///
+/// # Arguments
+/// - `transcript`: A mutable reference to the transcript `T` from which we squeeze the challenges.
+///
+/// # Returns
+/// - `(Vec<R::CoefficientRepresentation>, Vec<R>)`:
+///   - The first element is a vector of challenges in coefficient form.
+///   - The second element is the same vector of challenges in NTT form.
+///
 pub(super) fn get_rhos<
     R: SuitableRing,
     T: TranscriptWithShortChallenges<R>,
@@ -93,6 +133,72 @@ pub(super) fn get_rhos<
     (rhos_coeff, rhos)
 }
 
+/// Creates sumcheck polynomial
+///
+/// $$
+/// g(\vec{x}) := \sum_{i=1}^{2k} \left[\alpha_i g_{1,i}(\vec{x}) + \mu_i g_{2,i}(\vec{x}) + \zeta_i g_{3,i}(\vec{x})\right]
+/// $$
+///
+/// where, for all $i \in \[2k\]$,
+///
+/// $$
+/// g_{1,i}(\vec{x}) := \sum\_{j=0}^{\tau - 1} \alpha_i^j \cdot \left( eq(\vec{r}_i, \vec{x}) \cdot \mathrm{mle} \[\hat{f}\_{ij}\](\vec{x}) \right),
+/// $$
+///
+/// $$
+/// g_{2,i,j}(\vec{x}) := \sum\_{j=0}^{\tau - 1} \mu_i^j \left( eq(\vec{\beta}, \vec{x}) \cdot
+/// \prod_{j=-(b-1)}^{b-1} \( \mathrm{mle} \[\hat{f}\_{ij}\](\vec{x}) - j \)\right),
+/// $$
+///
+/// $$
+/// g_{3,i}(\vec{x}) := \sum\_{j=0}^{t-1} \zeta_i^j \cdot \left(eq(\vec{r}_i, \vec{x}) \cdot
+/// \left(
+/// \sum\_{
+/// \vec{b} \in \\{0,1\\}^\{log\(n + n\_{in}\)\}
+/// }
+/// \text{mle}\[M_j\]\(\vec{x}, \vec{b}\) \cdot \text{mle}\[z_i\]\(\vec{b}\)
+/// \right)
+/// \right).
+/// $$
+///
+/// # Arguments
+///
+/// - `log_m: usize`  
+///   The number of variables in the final polynomial.
+///
+/// - `f_hat_mles: &[Vec<DenseMultilinearExtension<NTT>>]`  
+///   A reference to the multilinear extension of the decomposed NTT witnesses
+///
+/// - `alpha_s: &[NTT]`  
+///   A slice containing the $\alpha$ challenges.
+///
+/// - `challenged_Ms_1: &DenseMultilinearExtension<NTT>`  
+///   A reference to the M matrices multiplied by the first $k$ decomposed vectors, and then taken a linear combination of.
+///
+/// - `challenged_Ms_2: &DenseMultilinearExtension<NTT>`  
+///    A reference to the M matrices multiplied by the second $k$ decomposed vectors, and then taken a linear combination of.
+///
+/// - `r_s: &[Vec<NTT>]`  
+///    The linearization challenge vectors
+///
+/// - `beta_s: &[NTT]`  
+///   The $\beta$ challenges
+///
+/// - `mu_s: &[NTT]`  
+///   The $\mu$ challenges
+///
+/// # Returns
+///
+/// - `Result<(Vec<RefCounter<DenseMultilinearExtension<NTT>>>, usize), FoldingError<NTT>>`  
+///   - On success, returns a tuple containing:
+///     - A `Vec<RefCounter<DenseMultilinearExtension<NTT>>>`, the MLEs that make up the polynomial.
+///     - A `usize` of the degree of the final polynomial.
+///
+/// # Errors
+///
+/// This function will return a `FoldingError<NTT>` if any of the multilinear extensions or vectors are of the wrong size.
+///
+/// $$
 #[allow(clippy::too_many_arguments)]
 pub(super) fn create_sumcheck_polynomial<NTT: OverField, DP: DecompositionParams>(
     log_m: usize,
@@ -155,6 +261,18 @@ pub(super) fn create_sumcheck_polynomial<NTT: OverField, DP: DecompositionParams
     Ok((mles, degree))
 }
 
+/// Combines evaluations of MLE into evaluation of folding sumcheck polynomial
+///
+/// # Arguments
+///
+/// - `vals: &[NTT]`:
+///     The evaluations of the multilinear extensions produced by the `create_sumcheck_polynomial` function
+/// - `mu_s: &[NTT]`
+///     The $\mu$ challenges
+///
+///  # Returns
+///  - NTT:
+///     The value of the same evaluation point evaluated by the folding sumcheck polynomial
 pub(crate) fn sumcheck_polynomial_comb_fn<NTT: SuitableRing, P: DecompositionParams>(
     vals: &[NTT],
     mu_s: &[NTT],
@@ -209,7 +327,48 @@ pub(crate) fn sumcheck_polynomial_comb_fn<NTT: SuitableRing, P: DecompositionPar
     result
 }
 
-/// The grand sum from point 4 of the Latticefold folding protocol.
+/// Computes the grand sum from point 4 of the Latticefold folding protocol.
+///
+/// # Arguments
+///
+/// - `alpha_s: &[NTT]`  
+///     A slice containing the $\alpha$ challenges.
+///
+/// - `mu_s: &[NTT]`  
+///     A slice containing the $\mu$ challenges.
+///
+/// - `theta_s: &[Vec<NTT>]`  
+///     $$
+///     \left[\theta\_{i} := \text{mle}\[\hat{f}\_i\](\vec{r}_o) \right]\_{i=1}^{2k},
+///     $$
+///
+/// - `e_asterisk: NTT`  
+///     $$
+///     \mathbf{e}^* := eq(\boldsymbol{\beta}, \mathbf{r}_o)
+///     $$
+///
+/// - `e_s: &[NTT]`  
+///     $$
+///     \left[ e_i := eq(\vec{r}\_i, \vec{r}\_o) \right]\_{i=1}^{2k}
+///     $$
+/// - `zeta_s: &[NTT]`  
+///
+///     A slice containing the $\zeta$ challenges.
+///
+/// - `eta_s: &[Vec<NTT>]`  
+///     $$
+///     \eta[i] :=
+///     \sum\_{
+///     \vec{b} \in \\{0,1\\}^\{log\(n + n\_{in}\)\}
+///     }
+///     \text{mle}\[M_1\]\(\vec{r}\_o, \vec{b}\) \cdot \text{mle}\[z_i\]\(\vec{b}\)
+///     $$
+///
+/// # Returns
+///
+/// - `NTT`  
+///     Returns the expected value of the sumcheck claim.
+///
 pub(super) fn compute_sumcheck_claim_expected_value<NTT: Ring, P: DecompositionParams>(
     alpha_s: &[NTT],
     mu_s: &[NTT],
@@ -255,6 +414,53 @@ pub(super) fn compute_sumcheck_claim_expected_value<NTT: Ring, P: DecompositionP
         .sum()
 }
 
+/// Computes `v0`, `u0`, `x0`, and `cm_0` as folding subprotocol.
+///
+/// # Type Parameters
+///
+/// - `C`: Length of the Ajtai commitment.
+/// - `NTT`: A ring suitable to be used in the LatticeFold protocol.
+///
+/// # Arguments
+///
+/// - `rho_s: &[NTT::CoefficientRepresentation]`  
+///
+///     $\rho$ challenges
+///
+/// - `theta_s: &[Vec<NTT>]`
+///     $$
+///     \left[\theta\_{i} := \text{mle}\[\hat{f}\_i\](\vec{r}_o) \right]\_{i=1}^{2k},
+///     $$
+/// - `cm_i_s: &[LCCCS<C, NTT>]`
+///
+///     Decomposed linearized commitments
+///
+/// - `eta_s: &[Vec<NTT>]`  
+///
+///     $$
+///     \eta[i] :=
+///     \sum\_{
+///     \vec{b} \in \\{0,1\\}^\{log\(n + n\_{in}\)\}
+///     }
+///     \text{mle}\[M_1\]\(\vec{r}\_o, \vec{b}\) \cdot \text{mle}\[z_i\]\(\vec{b}\)
+///     $$
+///
+/// - `ccs: &CCS<NTT>`  
+///
+///     A reference to a Customizable Constraint System instance used in the protocol.
+///
+/// # Returns
+///
+/// - `(Vec<NTT>, Commitment<C, NTT>, Vec<NTT>, Vec<NTT>)`  
+///   A tuple containing:
+///   - `v0: Vec<NTT>`  
+///     Evaluation of linearized folded witness at $\vec{r}\_o$
+///   - `u_0: Commitment<C, NTT>`
+///      A linear combination of $\left[ eta_s[i] \right]\_{i=1}^{2k}$
+///   - `x0: Vec<NTT>`
+///     Folded CCS statement
+///   - `cm_0: Vec<NTT>`
+///     Folded commitment
 pub(super) fn compute_v0_u0_x0_cm_0<const C: usize, NTT: SuitableRing>(
     rho_s_coeff: &[NTT::CoefficientRepresentation],
     rho_s: &[NTT],
@@ -312,6 +518,7 @@ pub(super) fn compute_v0_u0_x0_cm_0<const C: usize, NTT: SuitableRing>(
     (v_0, cm_0, u_0, x_0)
 }
 
+/// Get the MLEs needed for $k$ g1 and g3 components of the sumcheck polynomial
 fn prepare_g1_and_3_k_mles_list<NTT: OverField>(
     mles: &mut Vec<DenseMultilinearExtension<NTT>>,
     r_i_eq: DenseMultilinearExtension<NTT>,
@@ -335,7 +542,7 @@ fn prepare_g1_and_3_k_mles_list<NTT: OverField>(
     mles.push(r_i_eq);
     mles.push(combined_mle);
 }
-
+/// Get the MLEs needed for one g2 component of the sumcheck polynomial
 fn prepare_g2_i_mle_list<NTT: OverField>(
     mles: &mut Vec<DenseMultilinearExtension<NTT>>,
     beta_eq_x: DenseMultilinearExtension<NTT>,

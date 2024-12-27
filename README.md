@@ -35,7 +35,7 @@ Available packages:
 
 ## Examples
 
-Check [latticefold-examples/README.md](examples/README.md) for examples.
+Check [latticefold/examples/README.md](latticefold/examples/README.md) for examples.
 
 ## Frontends
 

@@ -33,6 +33,9 @@ Available packages:
 - `latticefold`: main crate, contains the non-interactive folding scheme implementation, together with the Ajtai commitment scheme, R1CS/CCS structures, Fiat-Shamir transcript machinery, etc.
 - `cyclotomic-rings`: contains the trait definition of a ring suitable to be used in the LatticeFold protocol, a few ready-to-use rings and short challenge set machinery.
 
+## Performance report
+The performance report for this library can be found [here](https://nethermind.notion.site/Latticefold-and-lattice-based-operations-performance-report-153360fc38d080ac930cdeeffed69559).
+
 ## Examples
 
 Check [latticefold/examples/README.md](latticefold/examples/README.md) for examples.

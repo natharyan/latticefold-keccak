@@ -1,7 +1,10 @@
 #![allow(non_snake_case)]
 
 use ark_ff::{Field, PrimeField, Zero};
-use ark_std::{iter::successors, iterable::Iterable};
+use ark_std::{
+    iter::{self, successors},
+    iterable::Iterable,
+};
 use cyclotomic_rings::{rings::SuitableRing, rotation::rot_lin_combination};
 use stark_rings::{cyclotomic_ring::CRT, OverField, PolyRing, Ring};
 use stark_rings_poly::mle::DenseMultilinearExtension;
@@ -496,18 +499,22 @@ pub(super) fn compute_v0_u0_x0_cm_0<const C: usize, NTT: SuitableRing>(
         .map(|(&rho_i, cm_i)| {
             cm_i.x_w
                 .iter()
+                .chain(iter::once(&cm_i.h))
                 .map(|x_w_i| rho_i * x_w_i)
                 .collect::<Vec<NTT>>()
         })
-        .fold(vec![NTT::zero(); ccs.n], |mut acc, rho_i_times_x_w_i| {
-            acc.iter_mut()
-                .zip(rho_i_times_x_w_i)
-                .for_each(|(acc_j, rho_i_times_x_w_i)| {
-                    *acc_j += rho_i_times_x_w_i;
-                });
+        .fold(
+            vec![NTT::zero(); ccs.l + 1],
+            |mut acc, rho_i_times_x_w_i| {
+                acc.iter_mut()
+                    .zip(rho_i_times_x_w_i)
+                    .for_each(|(acc_j, rho_i_times_x_w_i)| {
+                        *acc_j += rho_i_times_x_w_i;
+                    });
 
-            acc
-        });
+                acc
+            },
+        );
 
     (v_0, cm_0, u_0, x_0)
 }

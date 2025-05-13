@@ -7,8 +7,7 @@ A proof-of-concept implementation of the LatticeFold folding scheme engineered b
 
 ## Benchmarks
 
-To run the benchmarks on your local machine, simply execute `cargo bench`.
-
+To run the benchmarks on your local machine, simply execute `cargo bench`. This will take around 2 hours.
 ## Building
 
 The [rust-toolchain](https://github.com/NethermindEth/latticefold/blob/main/rust-toolchain) file pins the version of the Rust toolchain, which the LatticeFold library builds with, to the specific version `nightly-2025-03-06`.

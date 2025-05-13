@@ -5,6 +5,10 @@ A proof-of-concept implementation of the LatticeFold folding scheme engineered b
 
 **DISCLAIMER:** This is a proof-of-concept prototype, and in particular has not received careful code review. This implementation is provided "as is" and NOT ready for production use. Use at your own risk.
 
+## Benchmarks
+
+To run the benchmarks on your local machine, simply execute `cargo bench`.
+
 ## Building
 
 The [rust-toolchain](https://github.com/NethermindEth/latticefold/blob/main/rust-toolchain) file pins the version of the Rust toolchain, which the LatticeFold library builds with, to the specific version `nightly-2025-03-06`.

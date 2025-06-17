@@ -13,3 +13,5 @@ ark-std = "0.4"
 ark-bls12-381 = "0.4"
 ark-relations = "0.4"
 ark-serialize = "0.4.0"
+num-bigint.workspace = true
+ark-ff.workspace = true

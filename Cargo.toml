@@ -1,5 +1,5 @@
 [workspace] 
-members = [ "latticefold", "cyclotomic-rings" ]
+members = [ "latticefold", "cyclotomic-rings" , "latticefold-keccak"]
 resolver = "2"
 
 [workspace.package]
@@ -10,9 +10,15 @@ license = "Apache-2.0 OR MIT"
 ark-crypto-primitives = { version = "0.4.0", default-features = false, features = [
     "sponge",
 ] }
+
+arkworks-keccak = { path =  "../arkworks-keccak"}
+
 ark-ff = { version = "0.4.2", default-features = false }
 ark-serialize = { version = "0.4.2", features = ["derive"] }
 ark-std = { version = "0.4.0", default-features = false }
+ark-r1cs-std = "0.4"
+ark-bls12-381 = "0.4"
+ark-relations = "0.4"
 stark-rings = { git = "https://github.com/NethermindEth/stark-rings.git", branch = "main", default-features = false }
 stark-rings-linalg = { git = "https://github.com/NethermindEth/stark-rings.git", branch = "main", default-features = false }
 stark-rings-poly = { git = "https://github.com/NethermindEth/stark-rings.git", branch = "main", default-features = false }

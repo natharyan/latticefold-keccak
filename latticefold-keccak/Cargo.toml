@@ -8,6 +8,8 @@ license.workspace = true
 latticefold = { path =  "../latticefold", package = "latticefold" }
 arkworks-keccak = { path =  "../../arkworks-keccak"}
 cyclotomic-rings = { path = "../cyclotomic-rings", default-features = false }
+stark-rings = { git = "https://github.com/NethermindEth/stark-rings.git", branch = "main", default-features = false }
+stark-rings-linalg = { git = "https://github.com/NethermindEth/stark-rings.git", branch = "main", default-features = false }
 ark-r1cs-std = "0.4"
 ark-std = "0.4"
 ark-bls12-381 = "0.4"

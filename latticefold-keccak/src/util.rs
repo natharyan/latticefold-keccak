@@ -35,6 +35,17 @@ impl<F: PrimeField> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
         let a: Vec<Vec<(F, usize)>> = matrices.a;
         let b: Vec<Vec<(F, usize)>> = matrices.b;
         let c: Vec<Vec<(F, usize)>> = matrices.c;
+        let a_n_rows = a.len();
+        let a_n_cols = a.iter().flat_map(|row| row.iter().map(|&(_, col)| col)).max().map_or(0, |max_col| max_col + 1);
+        println!("a: ({}, {})", a_n_rows, a_n_cols);
+
+        let b_n_rows = b.len();
+        let b_n_cols = b.iter().flat_map(|row| row.iter().map(|&(_, col)| col)).max().map_or(0, |max_col| max_col + 1);
+        println!("b: ({}, {})", b_n_rows, b_n_cols);
+
+        let c_n_rows = c.len();
+        let c_n_cols = c.iter().flat_map(|row| row.iter().map(|&(_, col)| col)).max().map_or(0, |max_col| max_col + 1);
+        println!("c: ({}, {})", c_n_rows, c_n_cols);
         let a = a.r1csmat_to_sparsematrix();
         let b = b.r1csmat_to_sparsematrix();
         let c = c.r1csmat_to_sparsematrix();
@@ -55,7 +66,7 @@ impl<F: PrimeField, R: Ring> MatrixExt<F, R> for Vec<Vec<(F, usize)>> {
             .flat_map(|row| row.iter().map(|&(_, col)| col))
             .max_by(|a, b| a.cmp(&b))
             .map_or(0, |max_col| max_col + 1);
-        assert_eq!(n_rows, n_cols, "non square r1cs matrix");
+        // assert_eq!(n_rows, n_cols, "non square r1cs matrix");
         let mut matrix = SparseMatrix {
             n_rows: n_rows,
             n_cols: n_cols,
@@ -71,7 +82,7 @@ impl<F: PrimeField, R: Ring> MatrixExt<F, R> for Vec<Vec<(F, usize)>> {
     }
 }
 
-// find one such solution of d such that (d . z) = (a . z)o(a . z)o(a . z) = ((diag(a . z) . diag(b . z)) . c) . z
+// find one such solution of d such that (d . z) = (a . z)o(b . z)o(c . z) = ((diag(a . z) . diag(b . z)) . c) . z
 pub fn hadamard_ret_d<R: Ring>(
     a: SparseMatrix<R>,
     b: SparseMatrix<R>,
@@ -80,14 +91,11 @@ pub fn hadamard_ret_d<R: Ring>(
     rows: usize,
 ) -> SparseMatrix<R> {
     assert_eq!(
-        rows,
+        c.n_cols,
         z.len(),
         "Length of witness vector must be equal to ccs width"
-    ); // square r1cs matrices.
-    assert!(
-        a.n_rows == b.n_rows && b.n_rows == c.n_rows,
-        "Matrix row counts do not match"
     );
+    // matrix width need not match - depends on the witness used in a constraint
 
     let mut matrix = SparseMatrix {
         n_rows: rows,
@@ -95,17 +103,17 @@ pub fn hadamard_ret_d<R: Ring>(
         coeffs: vec![vec![]; rows],
     };
 
-    let mat_mult_a_z = sparse_matrix_mult_vec(&a.coeffs, z);
-    let mat_mult_b_z = sparse_matrix_mult_vec(&b.coeffs, z);
-
-    let mut vec_hadamard_a_b_z = Vec::new();
-    for i in 0..a.n_cols {
-        vec_hadamard_a_b_z.push(mat_mult_a_z[i] * mat_mult_b_z[i]);
+    let matvec_mult_a_z = sparse_matrix_mult_vec(&a.coeffs, z);
+    let matvec_mult_b_z = sparse_matrix_mult_vec(&b.coeffs, z);
+    let mut diag_hadamard_a_b_z = Vec::new();
+    for i in 0..rows {
+        diag_hadamard_a_b_z.push(matvec_mult_a_z[i] * matvec_mult_b_z[i]);
     }
-
+    println!("rows: {}", matrix.n_rows);
+    println!("diag_hadamard_a_b_z length: {}", diag_hadamard_a_b_z.len());
     for (i, row) in c.coeffs.iter().enumerate() {
         for (elem, col) in row {
-            matrix.coeffs[i].push((vec_hadamard_a_b_z[i] * (*elem), *col));
+            matrix.coeffs[i].push((diag_hadamard_a_b_z[i] * (*elem), *col));
         }
     }
 

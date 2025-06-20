@@ -32,8 +32,6 @@ type CS = BabyBearChallengeSet;
 type T = PoseidonTranscript<RqNTT, CS>;
 
 
-
-
 fn main() {
     let mut rng = ark_std::rand::thread_rng();
     let preimage_length_bytes = rng.gen_range(1..=256);
@@ -53,7 +51,7 @@ fn main() {
     let is_satisfied = cs.is_satisfied().unwrap();
     assert!(is_satisfied);
 
-    let (x_len, w_len, x_r1cs, w_r1cs) = z_split(cs);
+    let (x_len, w_len, x_r1cs, w_r1cs) = z_split(cs.clone());
     assert_eq!(x_r1cs.len(), preimage_length_bytes * 8 + expected.len() * 8);
 
     println!("Setting up example environment...");

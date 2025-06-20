@@ -90,7 +90,7 @@ impl<F: PrimeField, R: Ring> MatrixExt<F, R> for Vec<Vec<(F, usize)>> {
     }
 }
 
-// find one such solution of d such that (d . z) = (a . z)o(b . z)o(c . z) = ((diag(a . z) . diag(b . z)) . c) . z
+// find one such solution for d such that (d . z) = (a . z)o(b . z)o(c . z) = ((diag(a . z) . diag(b . z)) . c) . z
 pub fn hadamard_ret_d<R: Ring>(
     a: SparseMatrix<R>,
     b: SparseMatrix<R>,

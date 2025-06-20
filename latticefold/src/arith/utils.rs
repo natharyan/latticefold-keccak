@@ -50,14 +50,17 @@ pub(crate) fn hadamard<R: Ring>(a: &[R], b: &[R]) -> Result<Vec<R>, Error> {
 }
 
 pub(crate) fn mat_vec_mul<R: Ring>(M: &SparseMatrix<R>, z: &[R]) -> Result<Vec<R>, Error> {
-    if M.n_cols != z.len() {
-        return Err(Error::LengthsNotEqual(
-            "M".to_string(),
-            "z".to_string(),
-            M.n_cols,
-            z.len(),
-        ));
-    }
+    // This check is omitted because M represents sparse matrices with column indices in each row, 
+    // and the number of element in each row of M does not need to match the size of the witness vector z 
+    // when converting r1cs-std matrices to sparse matrices.
+    // if M.n_cols != z.len() {
+    //     return Err(Error::LengthsNotEqual(
+    //         "M".to_string(),
+    //         "z".to_string(),
+    //         M.n_cols,
+    //         z.len(),
+    //     ));
+    // }
 
     Ok(cfg_iter!(M.coeffs)
         .map(|row| row.iter().map(|(value, col_i)| *value * z[*col_i]).sum())

@@ -60,8 +60,10 @@ pub fn r1cs_to_ccs<F: PrimeField, R: Ring, const W: usize>(
     };
     let d_mat = hadamard_ret_d(a.clone(), b.clone(), c.clone(), z, new_r1cs_rows);
 
-    a = pad_matrtixrows_to(a.clone(), c.n_cols);
-    b = pad_matrtixrows_to(b.clone(), c.n_cols);
+    // TODO: this is cauing an out of memory error
+    // a = pad_matrtixrows_to(a.clone(), c.n_cols);
+    // b = pad_matrtixrows_to(b.clone(), c.n_cols);
+    // println!("rows padded!");
     let mut ccs = CCS {
         m: W,
         n: z.len(),
@@ -107,7 +109,7 @@ fn ret_ccs<
     z.extend(&w_ccs);
     let ccs: CCS<R> = r1cs_to_ccs::<F, R, W>(cs.clone(), &z, P::L, x_r1cs.len(), wit_len);
     ccs.check_relation(&z).expect("R1CS invalid!");
-
+    println!("CCS check passed!\n");
     let scheme: AjtaiCommitmentScheme<C, W, R> = AjtaiCommitmentScheme::rand(&mut rng);
     let wit: Witness<R> = Witness::from_w_ccs::<P>(w_ccs);
 

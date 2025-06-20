@@ -1,17 +1,20 @@
 use std::{usize, vec};
 
-use ark_relations::r1cs::{ConstraintSystemRef, Field, ConstraintMatrices};
+use ark_ff::PrimeField;
+use ark_relations::r1cs::{ConstraintMatrices, ConstraintSystemRef, Field};
 use cyclotomic_rings::rings::SuitableRing;
 use stark_rings::Ring;
 use stark_rings_linalg::SparseMatrix;
 
-pub trait ConstraintSystemExt<F: Field> {
+pub trait ConstraintSystemExt<F: PrimeField> {
     fn ret_instance(&self) -> Vec<F>;
     fn ret_witness(&self) -> Vec<F>;
-    fn get_r1cs_matrices<R: Ring + std::convert::From<F>>(&self) -> (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>);
+    fn get_r1cs_matrices<R: Ring>(
+        &self,
+    ) -> (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>);
 }
 
-impl<F: Field> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
+impl<F: PrimeField> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
     fn ret_instance(&self) -> Vec<F> {
         let cs = self.borrow().unwrap();
         cs.instance_assignment.clone()
@@ -22,7 +25,9 @@ impl<F: Field> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
         cs.witness_assignment.clone()
     }
 
-    fn get_r1cs_matrices<R: Ring + std::convert::From<F>>(&self) -> (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>) {
+    fn get_r1cs_matrices<R: Ring>(
+        &self,
+    ) -> (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>) {
         // get A, B, C;
         // get matrices for A, B, C from cs; use these to construct sparse matrices.
         let matrices: ConstraintMatrices<F> = self.borrow().unwrap().to_matrices().unwrap();
@@ -37,16 +42,19 @@ impl<F: Field> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
     }
 }
 
-
-pub trait MatrixExt<F: Field, R: Ring> {
+pub trait MatrixExt<F: PrimeField, R: Ring> {
     fn r1csmat_to_sparsematrix(&self) -> SparseMatrix<R>;
 }
 
-impl<F: Field, R: Ring + std::convert::From<F>> MatrixExt<F, R> for Vec<Vec<(F, usize)>> {
+impl<F: PrimeField, R: Ring> MatrixExt<F, R> for Vec<Vec<(F, usize)>> {
     fn r1csmat_to_sparsematrix(&self) -> SparseMatrix<R> {
         let n_rows = self.len();
         // let n_cols = n_rows;
-        let n_cols = self.iter().flat_map(|row| row.iter().map(|&(_, col)| col)).max().map_or(0, |max_col| max_col + 1);
+        let n_cols = self
+            .iter()
+            .flat_map(|row| row.iter().map(|&(_, col)| col))
+            .max_by(|a, b| a.cmp(&b))
+            .map_or(0, |max_col| max_col + 1);
         assert_eq!(n_rows, n_cols, "non square r1cs matrix");
         let mut matrix = SparseMatrix {
             n_rows: n_rows,
@@ -64,39 +72,54 @@ impl<F: Field, R: Ring + std::convert::From<F>> MatrixExt<F, R> for Vec<Vec<(F, 
 }
 
 // find one such solution of d such that (d . z) = (a . z)o(a . z)o(a . z) = ((diag(a . z) . diag(b . z)) . c) . z
-pub fn hadamard_ret_d<R: Ring>(a: SparseMatrix<R>, b: SparseMatrix<R>, c: SparseMatrix<R>, z: &[R], rows: usize) -> SparseMatrix<R> {
-    assert_eq!(rows, z.len(), "Length of witness vector must be equal to ccs width"); // square r1cs matrices.
-    assert!(a.n_rows == b.n_rows && b.n_rows == c.n_rows, "Matrix row counts do not match");
+pub fn hadamard_ret_d<R: Ring>(
+    a: SparseMatrix<R>,
+    b: SparseMatrix<R>,
+    c: SparseMatrix<R>,
+    z: &[R],
+    rows: usize,
+) -> SparseMatrix<R> {
+    assert_eq!(
+        rows,
+        z.len(),
+        "Length of witness vector must be equal to ccs width"
+    ); // square r1cs matrices.
+    assert!(
+        a.n_rows == b.n_rows && b.n_rows == c.n_rows,
+        "Matrix row counts do not match"
+    );
 
     let mut matrix = SparseMatrix {
         n_rows: rows,
         n_cols: z.len(),
         coeffs: vec![vec![]; rows],
     };
-        
+
     let mat_mult_a_z = sparse_matrix_mult_vec(&a.coeffs, z);
     let mat_mult_b_z = sparse_matrix_mult_vec(&b.coeffs, z);
 
     let mut vec_hadamard_a_b_z = Vec::new();
     for i in 0..a.n_cols {
-        vec_hadamard_a_b_z.push(mat_mult_a_z[i]*mat_mult_b_z[i]);
+        vec_hadamard_a_b_z.push(mat_mult_a_z[i] * mat_mult_b_z[i]);
     }
 
-    for (i,row) in c.coeffs.iter().enumerate(){
-        for (elem, col) in row{
-            matrix.coeffs[i].push((vec_hadamard_a_b_z[i]*(*elem), *col));
+    for (i, row) in c.coeffs.iter().enumerate() {
+        for (elem, col) in row {
+            matrix.coeffs[i].push((vec_hadamard_a_b_z[i] * (*elem), *col));
         }
     }
-    
+
     matrix
 }
 
 pub fn field_to_ring<R, F>(elem: F) -> R
 where
-    R: Ring + std::convert::From<F>,
-    F: Field,
+    R: Ring,
+    F: PrimeField,
 {
-    R::from(elem)
+    let bigint: <F as PrimeField>::BigInt = elem.into_bigint();
+    let val_bigint: u64 = bigint.as_ref()[0];
+    R::from(val_bigint as u128)
 }
 
 pub fn fieldvec_to_ringvec<R, F>(elems: &[F]) -> Vec<R>

@@ -1,6 +1,7 @@
 use std::{fmt::Debug, time::Instant, usize};
 
 use ark_bls12_381::Fr;
+use ark_ff::PrimeField;
 use ark_relations::r1cs::{self, ConstraintSystemRef, Field};
 use ark_serialize::{CanonicalSerialize, Compress};
 use ark_std::{log2, rand::Rng, vec::Vec, UniformRand};
@@ -20,14 +21,14 @@ use latticefold::{
         linearization::{LFLinearizationProver, LinearizationProver},
         NIFSProver, NIFSVerifier,
     },
-    transcript::{poseidon::PoseidonTranscript},
+    transcript::poseidon::PoseidonTranscript,
 };
 use stark_rings::Ring;
 use stark_rings_linalg::SparseMatrix;
 
-use crate::util::{fieldvec_to_ringvec, ConstraintSystemExt, hadamard_ret_d};
+use crate::util::{fieldvec_to_ringvec, hadamard_ret_d, ConstraintSystemExt};
 
-pub fn z_split<F: Field>(cs: ConstraintSystemRef<F>) -> (usize, usize, Vec<F>, Vec<F>) {
+pub fn z_split<F: PrimeField>(cs: ConstraintSystemRef<F>) -> (usize, usize, Vec<F>, Vec<F>) {
     let public_inputs = cs.ret_instance();
     let witnesses = cs.ret_witness();
     assert_eq!(public_inputs[0], F::one());
@@ -41,7 +42,7 @@ pub fn z_split<F: Field>(cs: ConstraintSystemRef<F>) -> (usize, usize, Vec<F>, V
     )
 }
 
-pub fn r1cs_to_ccs<F: Field, R: Ring + std::convert::From<F>, const W: usize>(
+pub fn r1cs_to_ccs<F: PrimeField, R: Ring, const W: usize>(
     cs: ConstraintSystemRef<F>,
     z: &[R],
     l: usize,
@@ -51,7 +52,7 @@ pub fn r1cs_to_ccs<F: Field, R: Ring + std::convert::From<F>, const W: usize>(
 ) -> CCS<R> {
     // D is the haddamard product of the matrices
     let (a, b, c): (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>) = cs.get_r1cs_matrices();
-    let d = hadamard_ret_d(a.clone(), b.clone(), c.clone(), z, n_rows);
+    let d_mat = hadamard_ret_d(a.clone(), b.clone(), c.clone(), z, n_rows);
 
     let mut ccs = CCS {
         m: W,
@@ -62,7 +63,7 @@ pub fn r1cs_to_ccs<F: Field, R: Ring + std::convert::From<F>, const W: usize>(
         d: 3,
         s: log2(W) as usize,
         s_prime: (x_len + wit_len + 1),
-        M: vec![a, b, c, d],
+        M: vec![a, b, c, d_mat],
         S: vec![vec![0, 1, 2], vec![3]],
         c: vec![R::one(), R::one().neg()],
     };
@@ -75,8 +76,8 @@ fn ret_ccs<
     const C: usize, // rows
     const W: usize, // columns
     P: DecompositionParams,
-    R: Clone + UniformRand + Debug + SuitableRing + std::convert::From<F>,
-    F: Field,
+    R: Clone + UniformRand + Debug + SuitableRing,
+    F: PrimeField,
 >(
     cs: ConstraintSystemRef<F>,
     x_r1cs: Vec<F>,
@@ -117,13 +118,13 @@ fn ret_ccs<
     (cm_i, wit, ccs, scheme)
 }
 
-fn setup_environment<
+pub fn setup_environment<
     const C: usize,
-    RqNTT: SuitableRing + std::convert::From<F>,
+    RqNTT: SuitableRing,
     DP: DecompositionParams,
     const W: usize,
     CS: LatticefoldChallengeSet<RqNTT>,
-    F: Field,
+    F: PrimeField,
 >(
     cs: ConstraintSystemRef<F>,
 ) -> (
@@ -141,7 +142,8 @@ fn setup_environment<
     let ring_w_css: Vec<RqNTT> = w_r1cs
         .clone() // TODO: match with the linearization protocol
         .into_iter()
-        .map(|bit| { // expect boolean witnesses from r1cs-std
+        .map(|bit| {
+            // expect boolean witnesses from r1cs-std
             if bit == F::zero() {
                 RqNTT::from(0 as u64)
             } else {

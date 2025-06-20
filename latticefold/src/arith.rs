@@ -160,7 +160,7 @@ impl<R: Ring> CCS<R> {
         }
     }
 
-    fn pad_rows_to(&mut self, size: usize) {
+    pub fn pad_rows_to(&mut self, size: usize) {
         let size = size.next_power_of_two();
         if size > self.m {
             self.m = size;

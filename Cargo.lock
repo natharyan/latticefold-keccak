@@ -896,6 +896,8 @@ dependencies = [
  "cyclotomic-rings",
  "latticefold",
  "num-bigint",
+ "stark-rings",
+ "stark-rings-linalg",
 ]
 
 [[package]]

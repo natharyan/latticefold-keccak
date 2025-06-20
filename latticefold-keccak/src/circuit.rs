@@ -1,7 +1,7 @@
 use std::{fmt::Debug, time::Instant, usize};
 
 use ark_bls12_381::Fr;
-use ark_relations::r1cs::{ConstraintSystemRef, Field};
+use ark_relations::r1cs::{self, ConstraintSystemRef, Field};
 use ark_serialize::{CanonicalSerialize, Compress};
 use ark_std::{log2, rand::Rng, vec::Vec, UniformRand};
 use arkworks_keccak::{
@@ -25,7 +25,7 @@ use latticefold::{
 use stark_rings::Ring;
 use stark_rings_linalg::SparseMatrix;
 
-use crate::util::{fieldvec_to_ringvec, ConstraintSystemExt, hadamard};
+use crate::util::{fieldvec_to_ringvec, ConstraintSystemExt, hadamard_ret_d};
 
 pub fn z_split<F: Field>(cs: ConstraintSystemRef<F>) -> (usize, usize, Vec<F>, Vec<F>) {
     let public_inputs = cs.ret_instance();
@@ -51,7 +51,7 @@ pub fn r1cs_to_ccs<F: Field, R: Ring + std::convert::From<F>, const W: usize>(
 ) -> CCS<R> {
     // D is the haddamard product of the matrices
     let (a, b, c): (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>) = cs.get_r1cs_matrices();
-    let d = hadamard(a.clone(), b.clone(), c.clone(), z);
+    let d = hadamard_ret_d(a.clone(), b.clone(), c.clone(), z, n_rows);
 
     let mut ccs = CCS {
         m: W,
@@ -90,11 +90,11 @@ fn ret_ccs<
     AjtaiCommitmentScheme<C, W, R>,
 ) {
     let mut rng = ark_std::test_rng();
-    let new_r1cs_rows = if P::L == 1 && (wit_len > 0 && (wit_len & (wit_len - 1)) == 0) {
-        r1cs_rows - 2
-    } else {
-        r1cs_rows
-    };
+    // let new_r1cs_rows = if P::L == 1 && (wit_len > 0 && (wit_len & (wit_len - 1)) == 0) {
+    //     r1cs_rows - 2
+    // } else {
+    //     r1cs_rows
+    // };
     let x_ccs: Vec<R> = fieldvec_to_ringvec(&x_r1cs);
     let w_ccs: Vec<R> = fieldvec_to_ringvec(&w_r1cs);
     let one = R::one();
@@ -103,7 +103,7 @@ fn ret_ccs<
     z.extend(&x_ccs);
     z.extend(&w_ccs);
     let ccs: CCS<R> =
-        r1cs_to_ccs::<F, R, W>(cs.clone(), &z, P::L, new_r1cs_rows, x_r1cs.len(), wit_len); // TODO: r1cs_to_ccs
+        r1cs_to_ccs::<F, R, W>(cs.clone(), &z, P::L, r1cs_rows, x_r1cs.len(), wit_len);
     ccs.check_relation(&z).expect("R1CS invalid!");
 
     let scheme: AjtaiCommitmentScheme<C, W, R> = AjtaiCommitmentScheme::rand(&mut rng);

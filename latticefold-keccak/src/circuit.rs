@@ -26,13 +26,14 @@ use latticefold::{
 use stark_rings::Ring;
 use stark_rings_linalg::SparseMatrix;
 
-use crate::util::{fieldvec_to_ringvec, hadamard_ret_d, ConstraintSystemExt};
+use crate::util::{fieldvec_to_ringvec, hadamard_ret_d, pad_matrtixrows_to, ConstraintSystemExt};
 
 pub fn z_split<F: PrimeField>(cs: ConstraintSystemRef<F>) -> (usize, usize, Vec<F>, Vec<F>) {
     let public_inputs = cs.ret_instance();
     let witnesses = cs.ret_witness();
     assert_eq!(public_inputs[0], F::one());
     println!("Witnesses: {}\n", public_inputs.len() + witnesses.len());
+
     (
         public_inputs.len() - 1,
         witnesses.len(),
@@ -49,7 +50,8 @@ pub fn r1cs_to_ccs<F: PrimeField, R: Ring, const W: usize>(
     wit_len: usize,
 ) -> CCS<R> {
     // D is the haddamard product of the matrices
-    let (a, b, c): (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>) = cs.get_r1cs_matrices();
+    let (mut a, mut b, mut c): (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>) =
+        cs.get_r1cs_matrices();
     let r1cs_rows = a.n_rows;
     let new_r1cs_rows = if l == 1 && (wit_len > 0 && (wit_len & (wit_len - 1)) == 0) {
         r1cs_rows - 2
@@ -57,8 +59,9 @@ pub fn r1cs_to_ccs<F: PrimeField, R: Ring, const W: usize>(
         r1cs_rows
     };
     let d_mat = hadamard_ret_d(a.clone(), b.clone(), c.clone(), z, new_r1cs_rows);
-    
-    // TODO: pad each matrix to the same width as c
+
+    a = pad_matrtixrows_to(a.clone(), c.n_cols);
+    b = pad_matrtixrows_to(b.clone(), c.n_cols);
     let mut ccs = CCS {
         m: W,
         n: z.len(),
@@ -102,8 +105,7 @@ fn ret_ccs<
     let mut z = vec![one];
     z.extend(&x_ccs);
     z.extend(&w_ccs);
-    let ccs: CCS<R> =
-        r1cs_to_ccs::<F, R, W>(cs.clone(), &z, P::L, x_r1cs.len(), wit_len);
+    let ccs: CCS<R> = r1cs_to_ccs::<F, R, W>(cs.clone(), &z, P::L, x_r1cs.len(), wit_len);
     ccs.check_relation(&z).expect("R1CS invalid!");
 
     let scheme: AjtaiCommitmentScheme<C, W, R> = AjtaiCommitmentScheme::rand(&mut rng);

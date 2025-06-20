@@ -24,13 +24,15 @@ use latticefold::{
     },
     transcript::poseidon::PoseidonTranscript,
 };
-use latticefold_keccak::circuit::{z_split, setup_environment};
-include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../target/debug/build/latticefold-735affedff5e3c44/out/examples_generated.rs"));
+use latticefold_keccak::circuit::{setup_environment, z_split};
+include!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../target/debug/build/latticefold-735affedff5e3c44/out/examples_generated.rs"
+));
 
 type RqNTT = BabyBearRingNTT;
 type CS = BabyBearChallengeSet;
 type T = PoseidonTranscript<RqNTT, CS>;
-
 
 fn main() {
     let mut rng = ark_std::rand::thread_rng();
@@ -57,11 +59,11 @@ fn main() {
     println!("Setting up example environment...");
 
     println!("Decomposition parameters:");
-    
-        println!("\tB: {}", BabyBearExampleDP::B);
-        println!("\tL: {}", BabyBearExampleDP::L);
-        println!("\tB_SMALL: {}", BabyBearExampleDP::B_SMALL);
-        println!("\tK: {}", BabyBearExampleDP::K);
+
+    println!("\tB: {}", BabyBearExampleDP::B);
+    println!("\tL: {}", BabyBearExampleDP::L);
+    println!("\tB_SMALL: {}", BabyBearExampleDP::B_SMALL);
+    println!("\tK: {}", BabyBearExampleDP::K);
 
     let (acc, wit_acc, cm_i, wit_i, ccs, scheme) =
         setup_environment::<C, RqNTT, BabyBearExampleDP, W_BABYBEAR, CS, Fr>(cs);

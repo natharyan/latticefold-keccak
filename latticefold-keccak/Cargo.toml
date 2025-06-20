@@ -17,3 +17,4 @@ ark-relations = "0.4"
 ark-serialize = "0.4.0"
 num-bigint.workspace = true
 ark-ff.workspace = true
+humansize = "2.1.3"

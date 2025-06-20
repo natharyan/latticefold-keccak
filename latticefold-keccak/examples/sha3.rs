@@ -6,11 +6,11 @@ use ark_serialize::{CanonicalSerialize, Compress};
 use ark_std::{rand::Rng, vec::Vec, UniformRand};
 use arkworks_keccak::{
     constraints::{KeccakCircuit, KeccakMode},
-    util::{bytes_to_bitvec, shake_256},
+    util::{bytes_to_bitvec, sha3_256, shake_256},
 };
 use cyclotomic_rings::{
     challenge_set::LatticefoldChallengeSet,
-    rings::{BabyBearChallengeSet, BabyBearRingNTT, SuitableRing},
+    rings::{GoldilocksChallengeSet, GoldilocksRingNTT, SuitableRing},
 };
 use latticefold::{
     arith::{
@@ -30,8 +30,8 @@ include!(concat!(
     "/../target/debug/build/latticefold-735affedff5e3c44/out/examples_generated.rs"
 ));
 
-type RqNTT = BabyBearRingNTT;
-type CS = BabyBearChallengeSet;
+type RqNTT = GoldilocksRingNTT;
+type CS = GoldilocksChallengeSet;
 type T = PoseidonTranscript<RqNTT, CS>;
 
 fn main() {
@@ -41,12 +41,12 @@ fn main() {
     let d: usize = rng.gen_range(100..=4032);
     println!("input length: {} bits", preimage.len());
     println!("d: {}", d);
-    let expected = shake_256(&preimage, d / 8); // change
+    let expected = sha3_256(&preimage); // change
     let preimage = bytes_to_bitvec::<Fr>(&preimage);
     let circuit = KeccakCircuit::<Fr>::init_circuit(
         preimage.clone(),
         expected.to_vec(),
-        KeccakMode::Shake256,
+        KeccakMode::Sha3_256,
         d,
     );
     let cs: ConstraintSystemRef<Fr> = circuit.gen_cs();
@@ -60,11 +60,64 @@ fn main() {
 
     println!("Decomposition parameters:");
 
-    println!("\tB: {}", BabyBearExampleDP::B);
-    println!("\tL: {}", BabyBearExampleDP::L);
-    println!("\tB_SMALL: {}", BabyBearExampleDP::B_SMALL);
-    println!("\tK: {}", BabyBearExampleDP::K);
+    println!("\tB: {}", GoldilocksExampleDP::B);
+    println!("\tL: {}", GoldilocksExampleDP::L);
+    println!("\tB_SMALL: {}", GoldilocksExampleDP::B_SMALL);
+    println!("\tK: {}", GoldilocksExampleDP::K);
 
     let (acc, wit_acc, cm_i, wit_i, ccs, scheme) =
-        setup_environment::<C, RqNTT, BabyBearExampleDP, W_BABYBEAR, CS, Fr>(cs);
+        setup_environment::<C, RqNTT, GoldilocksExampleDP, W_GOLDILOCKS, CS, Fr>(cs);
+
+    let mut prover_transcript = PoseidonTranscript::<RqNTT, CS>::default();
+    let mut verifier_transcript = PoseidonTranscript::<RqNTT, CS>::default();
+    println!("Generating proof...");
+    let start = Instant::now();
+
+    let (_, _, proof) = NIFSProver::<C, W_GOLDILOCKS, RqNTT, GoldilocksExampleDP, T>::prove(
+        &acc,
+        &wit_acc,
+        &cm_i,
+        &wit_i,
+        &mut prover_transcript,
+        &ccs,
+        &scheme,
+    )
+    .unwrap();
+    let duration = start.elapsed();
+    println!("Proof generated in {:?}", duration);
+
+    let mut serialized_proof = Vec::new();
+
+    println!("Serializing proof (with compression)...");
+    proof
+        .serialize_with_mode(&mut serialized_proof, Compress::Yes)
+        .unwrap();
+    let compressed_size = serialized_proof.len();
+    println!(
+        "Proof size (with compression) size: {}",
+        humansize::format_size(compressed_size, humansize::BINARY)
+    );
+
+    println!("Serializing proof (without compression)...");
+    proof
+        .serialize_with_mode(&mut serialized_proof, Compress::No)
+        .unwrap();
+    let uncompressed_size = serialized_proof.len();
+    println!(
+        "Proof (without compression) size: {}",
+        humansize::format_size(uncompressed_size, humansize::BINARY)
+    );
+
+    println!("Verifying proof");
+    let start = Instant::now();
+    NIFSVerifier::<C, RqNTT, GoldilocksExampleDP, T>::verify(
+        &acc,
+        &cm_i,
+        &proof,
+        &mut verifier_transcript,
+        &ccs,
+    )
+    .unwrap();
+    let duration = start.elapsed();
+    println!("Proof verified in {:?}", duration);
 }

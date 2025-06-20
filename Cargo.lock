@@ -894,6 +894,7 @@ dependencies = [
  "ark-std",
  "arkworks-keccak",
  "cyclotomic-rings",
+ "humansize",
  "latticefold",
  "num-bigint",
  "stark-rings",

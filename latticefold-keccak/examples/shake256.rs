@@ -39,7 +39,7 @@ fn main() {
     let preimage_length_bytes = rng.gen_range(1..=256);
     let preimage: Vec<u8> = (0..preimage_length_bytes).map(|_| rng.r#gen()).collect();
     let d: usize = rng.gen_range(100..=4032);
-    println!("input length: {} bits", preimage.len());
+    println!("input length: {} bytes", preimage.len());
     println!("d: {}", d);
     let expected = shake_256(&preimage, d / 8); // change
     let preimage = bytes_to_bitvec::<Fr>(&preimage);

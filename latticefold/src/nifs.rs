@@ -39,7 +39,7 @@ pub struct LFProof<const C: usize, NTT: OverField> {
 /// `NTT` is a suitable cyclotomic ring.
 /// `P` is the decomposition parameters.
 /// `T` is the FS-transform transcript.
-pub struct NIFSProver<const C: usize, const W: usize, NTT, P, T> {
+pub struct NIFSProver<const C: usize, NTT, P, T> {
     _r: PhantomData<NTT>,
     _p: PhantomData<P>,
     _t: PhantomData<T>,
@@ -47,11 +47,10 @@ pub struct NIFSProver<const C: usize, const W: usize, NTT, P, T> {
 
 impl<
         const C: usize,
-        const W: usize,
         NTT: SuitableRing,
         P: DecompositionParams,
         T: TranscriptWithShortChallenges<NTT>,
-    > NIFSProver<C, W, NTT, P, T>
+    > NIFSProver<C, NTT, P, T>
 {
     pub fn prove(
         acc: &LCCCS<C, NTT>,
@@ -60,7 +59,8 @@ impl<
         w_i: &Witness<NTT>,
         transcript: &mut impl TranscriptWithShortChallenges<NTT>,
         ccs: &CCS<NTT>,
-        scheme: &AjtaiCommitmentScheme<C, W, NTT>,
+        scheme: &AjtaiCommitmentScheme<C, NTT>,
+        w: usize
     ) -> Result<(LCCCS<C, NTT>, Witness<NTT>, LFProof<C, NTT>), LatticefoldError<NTT>> {
         sanity_check::<NTT, P>(ccs)?;
 
@@ -69,14 +69,15 @@ impl<
         let (linearized_cm_i, linearization_proof) =
             LFLinearizationProver::<_, T>::prove(cm_i, w_i, transcript, ccs)?;
         let (mz_mles_l, decomposed_lcccs_l, decomposed_wit_l, decomposition_proof_l) =
-            LFDecompositionProver::<_, T>::prove::<W, C, P>(acc, w_acc, transcript, ccs, scheme)?;
+            LFDecompositionProver::<_, T>::prove::<C, P>(acc, w_acc, transcript, ccs, scheme, w)?;
         let (mz_mles_r, decomposed_lcccs_r, decomposed_wit_r, decomposition_proof_r) =
-            LFDecompositionProver::<_, T>::prove::<W, C, P>(
+            LFDecompositionProver::<_, T>::prove::<C, P>(
                 &linearized_cm_i,
                 w_i,
                 transcript,
                 ccs,
                 scheme,
+                w
             )?;
 
         let (mz_mles, lcccs, wit_s) = {

@@ -42,12 +42,13 @@ pub fn z_split<F: PrimeField>(cs: ConstraintSystemRef<F>) -> (usize, usize, Vec<
     )
 }
 
-pub fn r1cs_to_ccs<F: PrimeField, R: Ring, const W: usize>(
+pub fn r1cs_to_ccs<F: PrimeField, R: Ring>(
     cs: ConstraintSystemRef<F>,
     z: &[R],
     l: usize,
     x_len: usize,
     wit_len: usize,
+    W: usize,
 ) -> CCS<R> {
     // D is the haddamard product of the matrices
     let (mut a, mut b, mut c): (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>) =
@@ -60,19 +61,19 @@ pub fn r1cs_to_ccs<F: PrimeField, R: Ring, const W: usize>(
     };
     let d_mat = hadamard_ret_d(a.clone(), b.clone(), c.clone(), z, new_r1cs_rows);
 
-    // TODO: this is cauing an out of memory error
+    // TODO: this is causing an out of memory error
     // a = pad_matrtixrows_to(a.clone(), c.n_cols);
     // b = pad_matrtixrows_to(b.clone(), c.n_cols);
     // println!("rows padded!");
     let mut ccs = CCS {
         m: W,
-        n: z.len(),
+        n: x_len + wit_len + 1,
         l: 1,
         t: 4,
         q: 2,
         d: 3,
         s: log2(W) as usize,
-        s_prime: z.len(),
+        s_prime: x_len + wit_len + 1,
         M: vec![a, b, c, d_mat],
         S: vec![vec![0, 1, 2], vec![3]],
         c: vec![R::one(), R::one().neg()],
@@ -84,7 +85,7 @@ pub fn r1cs_to_ccs<F: PrimeField, R: Ring, const W: usize>(
 
 fn ret_ccs<
     const C: usize, // rows
-    const W: usize, // columns
+    // const W: usize, // columns
     P: DecompositionParams,
     R: Clone + UniformRand + Debug + SuitableRing,
     F: PrimeField,
@@ -93,11 +94,12 @@ fn ret_ccs<
     x_r1cs: Vec<F>,
     w_r1cs: Vec<F>,
     wit_len: usize,
+    w: usize
 ) -> (
     CCCS<C, R>,
     Witness<R>,
     CCS<R>,
-    AjtaiCommitmentScheme<C, W, R>,
+    AjtaiCommitmentScheme<C, R>,
 ) {
     let mut rng = ark_std::test_rng();
     let x_ccs: Vec<R> = fieldvec_to_ringvec(&x_r1cs);
@@ -107,14 +109,14 @@ fn ret_ccs<
     let mut z = vec![one];
     z.extend(&x_ccs);
     z.extend(&w_ccs);
-    let ccs: CCS<R> = r1cs_to_ccs::<F, R, W>(cs.clone(), &z, P::L, x_r1cs.len(), wit_len);
+    let ccs: CCS<R> = r1cs_to_ccs::<F, R>(cs.clone(), &z, P::L, x_r1cs.len(), wit_len, w);
     ccs.check_relation(&z).expect("R1CS invalid!");
     println!("CCS check passed!\n");
-    let scheme: AjtaiCommitmentScheme<C, W, R> = AjtaiCommitmentScheme::rand(&mut rng);
+    let scheme: AjtaiCommitmentScheme<C, R> = AjtaiCommitmentScheme::rand(&mut rng, w);
     let wit: Witness<R> = Witness::from_w_ccs::<P>(w_ccs);
-
+    // TODO: fix from here
     let cm_i: CCCS<C, R> = CCCS {
-        cm: wit.commit::<C, W, P>(&scheme).unwrap(),
+        cm: wit.commit::<C, P>(&scheme, w).unwrap(),
         x_ccs,
     };
 
@@ -125,24 +127,27 @@ pub fn setup_environment<
     const C: usize,
     RqNTT: SuitableRing,
     DP: DecompositionParams,
-    const W: usize,
+    // W: usize,
     CS: LatticefoldChallengeSet<RqNTT>,
     F: PrimeField,
 >(
     cs: ConstraintSystemRef<F>,
+    w: usize
 ) -> (
     LCCCS<C, RqNTT>,
     Witness<RqNTT>,
     CCCS<C, RqNTT>,
     Witness<RqNTT>,
     CCS<RqNTT>,
-    AjtaiCommitmentScheme<C, W, RqNTT>,
+    AjtaiCommitmentScheme<C, RqNTT>,
 ) {
     let (x_len, wit_len, x_r1cs, w_r1cs) = z_split(cs.clone());
     let (cm_i, wit, ccs, scheme) =
-        ret_ccs::<C, W, DP, RqNTT, F>(cs.clone(), x_r1cs, w_r1cs.clone(), wit_len);
+        ret_ccs::<C, DP, RqNTT, F>(cs.clone(), x_r1cs, w_r1cs.clone(), wit_len, w);
+
+    // TODO: match with the linearization protocol
     let ring_w_css: Vec<RqNTT> = w_r1cs
-        .clone() // TODO: match with the linearization protocol
+        .clone() 
         .into_iter()
         .map(|bit| {
             // expect boolean witnesses from r1cs-std
@@ -154,7 +159,7 @@ pub fn setup_environment<
         })
         .collect();
     let wit_acc = Witness::from_w_ccs::<DP>(ring_w_css);
-
+    
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
     let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove(

@@ -357,11 +357,12 @@ impl<NTT: SuitableRing> Witness<NTT> {
     /// Produces a commitment from a witness
     ///
     /// Ajtai commitments are produced by multiplying an Ajtai matrix by the witness vector
-    pub fn commit<const C: usize, const W: usize, P: DecompositionParams>(
+    pub fn commit<const C: usize,  P: DecompositionParams>(
         &self,
-        ajtai: &AjtaiCommitmentScheme<C, W, NTT>,
+        ajtai: &AjtaiCommitmentScheme<C, NTT>,
+        w: usize
     ) -> Result<Commitment<C, NTT>, CommitmentError> {
-        ajtai.commit_ntt(&self.f)
+        ajtai.commit_ntt(&self.f, w)
     }
 
     /// Takes the `f_hat` value.

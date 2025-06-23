@@ -46,12 +46,13 @@ pub struct DecompositionProof<const C: usize, NTT: Ring> {
 }
 
 pub trait DecompositionProver<NTT: SuitableRing, T: Transcript<NTT>> {
-    fn prove<const W: usize, const C: usize, P: DecompositionParams>(
+    fn prove<const C: usize, P: DecompositionParams>(
         cm_i: &LCCCS<C, NTT>,
         wit: &Witness<NTT>,
         transcript: &mut impl Transcript<NTT>,
         ccs: &CCS<NTT>,
-        scheme: &AjtaiCommitmentScheme<C, W, NTT>,
+        scheme: &AjtaiCommitmentScheme<C, NTT>,
+        w: usize
     ) -> Result<
         (
             Vec<Vec<DenseMultilinearExtension<NTT>>>,

@@ -357,6 +357,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-print"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c68591eff3de65abe95d1899272580867dbbb91fcd15600bb51550e992e3123"
+
+[[package]]
 name = "bumpalo"
 version = "3.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -893,6 +899,7 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "arkworks-keccak",
+ "build-print",
  "cyclotomic-rings",
  "humansize",
  "latticefold",

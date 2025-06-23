@@ -31,12 +31,13 @@ mod utils;
 impl<NTT: SuitableRing, T: Transcript<NTT>> DecompositionProver<NTT, T>
     for LFDecompositionProver<NTT, T>
 {
-    fn prove<const W: usize, const C: usize, P: DecompositionParams>(
+    fn prove<const C: usize, P: DecompositionParams>(
         cm_i: &LCCCS<C, NTT>,
         wit: &Witness<NTT>,
         transcript: &mut impl Transcript<NTT>,
         ccs: &CCS<NTT>,
-        scheme: &AjtaiCommitmentScheme<C, W, NTT>,
+        scheme: &AjtaiCommitmentScheme<C, NTT>,
+        w: usize
     ) -> Result<
         (
             Vec<Vec<DenseMultilinearExtension<NTT>>>,
@@ -53,7 +54,7 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> DecompositionProver<NTT, T>
 
         let x_s = Self::compute_x_s::<P>(cm_i.x_w.clone(), cm_i.h);
 
-        let y_s: Vec<Commitment<C, NTT>> = Self::commit_witnesses::<C, W, P>(&wit_s, scheme, cm_i)?;
+        let y_s: Vec<Commitment<C, NTT>> = Self::commit_witnesses::<C, P>(&wit_s, scheme, cm_i, w)?;
 
         let v_s: Vec<Vec<NTT>> = Self::compute_v_s(&wit_s, &cm_i.r)?;
 
@@ -182,15 +183,16 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LFDecompositionProver<NTT, T> {
     }
 
     /// Ajtai commits to witnesses `wit_s` using Ajtai commitment scheme `scheme`.
-    fn commit_witnesses<const C: usize, const W: usize, P: DecompositionParams>(
+    fn commit_witnesses<const C: usize, P: DecompositionParams>(
         wit_s: &[Witness<NTT>],
-        scheme: &AjtaiCommitmentScheme<C, W, NTT>,
+        scheme: &AjtaiCommitmentScheme<C, NTT>,
         cm_i: &LCCCS<C, NTT>,
+        w: usize
     ) -> Result<Vec<Commitment<C, NTT>>, CommitmentError> {
         let b = NTT::from(P::B_SMALL as u128);
 
         let commitments_k1: Vec<_> = cfg_iter!(wit_s[1..])
-            .map(|wit| wit.commit::<C, W, P>(scheme))
+            .map(|wit| wit.commit::<C, P>(scheme, w))
             .collect::<Result<_, _>>()?;
 
         let b_sum = commitments_k1

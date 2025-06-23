@@ -31,6 +31,7 @@ impl<F: PrimeField> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
         let a: Vec<Vec<(F, usize)>> = matrices.a;
         let b: Vec<Vec<(F, usize)>> = matrices.b;
         let c: Vec<Vec<(F, usize)>> = matrices.c;
+
         let a_n_rows = a.len();
         let a_n_cols = a
             .iter()
@@ -53,27 +54,22 @@ impl<F: PrimeField> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
             .flat_map(|row| row.iter().map(|&(_, col)| col))
             .max()
             .map_or(0, |max_col| max_col + 1);
-        println!("c: ({}, {})", c_n_rows, c_n_cols);
-        let a = a.r1csmat_to_sparsematrix();
-        let b = b.r1csmat_to_sparsematrix();
-        let c = c.r1csmat_to_sparsematrix();
+        println!("c: ({}, {})\n", c_n_rows, c_n_cols);
+
+        let a = a.r1csmat_to_sparsematrix(c_n_cols);
+        let b = b.r1csmat_to_sparsematrix(c_n_cols);
+        let c = c.r1csmat_to_sparsematrix(c_n_cols);
         (a, b, c)
     }
 }
 
 pub trait MatrixExt<F: PrimeField, R: Ring> {
-    fn r1csmat_to_sparsematrix(&self) -> SparseMatrix<R>;
+    fn r1csmat_to_sparsematrix(&self, n_cols: usize) -> SparseMatrix<R>;
 }
 
 impl<F: PrimeField, R: Ring> MatrixExt<F, R> for Vec<Vec<(F, usize)>> {
-    fn r1csmat_to_sparsematrix(&self) -> SparseMatrix<R> {
+    fn r1csmat_to_sparsematrix(&self, n_cols: usize) -> SparseMatrix<R> {
         let n_rows = self.len();
-        // let n_cols = n_rows;
-        let n_cols = self
-            .iter()
-            .flat_map(|row| row.iter().map(|&(_, col)| col))
-            .max_by(|a, b| a.cmp(&b))
-            .map_or(0, |max_col| max_col + 1);
         // assert_eq!(n_rows, n_cols, "non square r1cs matrix");
         let mut matrix = SparseMatrix {
             n_rows: n_rows,

@@ -66,14 +66,13 @@ fn main() {
     println!("\tK: {}", GoldilocksExampleDP::K);
 
     let (acc, wit_acc, cm_i, wit_i, ccs, scheme) =
-        setup_environment::<C, RqNTT, GoldilocksExampleDP, W_GOLDILOCKS, CS, Fr>(cs);
+        setup_environment::<C, RqNTT, GoldilocksExampleDP, CS, Fr>(cs, w_len*GoldilocksExampleDP::L);
 
     let mut prover_transcript = PoseidonTranscript::<RqNTT, CS>::default();
     let mut verifier_transcript = PoseidonTranscript::<RqNTT, CS>::default();
     println!("Generating proof...");
     let start = Instant::now();
-
-    let (_, _, proof) = NIFSProver::<C, W_GOLDILOCKS, RqNTT, GoldilocksExampleDP, T>::prove(
+    let (_, _, proof) = NIFSProver::<C, RqNTT, GoldilocksExampleDP, T>::prove(
         &acc,
         &wit_acc,
         &cm_i,
@@ -81,6 +80,7 @@ fn main() {
         &mut prover_transcript,
         &ccs,
         &scheme,
+        w_len*GoldilocksExampleDP::L
     )
     .unwrap();
     let duration = start.elapsed();

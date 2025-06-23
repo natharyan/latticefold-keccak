@@ -78,11 +78,11 @@ where
     let mut rng = test_rng();
     let (_, x_ccs, w_ccs) = get_test_degree_three_z_non_scalar_split();
 
-    let scheme = AjtaiCommitmentScheme::rand(&mut rng);
+    let scheme = AjtaiCommitmentScheme::rand(&mut rng, W);
 
     let wit = Witness::from_w_ccs::<DP>(w_ccs);
     let cm_i = CCCS {
-        cm: wit.commit::<C, W, DP>(&scheme).unwrap(),
+        cm: wit.commit::<C, DP>(&scheme, W).unwrap(),
         x_ccs,
     };
     let mut prover_transcript = PoseidonTranscript::<RqNTT, CS>::default();
@@ -106,12 +106,13 @@ where
     .unwrap();
 
     let (mz_mles, _, wit_vec, decomposition_proof) =
-        LFDecompositionProver::<_, PoseidonTranscript<RqNTT, CS>>::prove::<W, C, DP>(
+        LFDecompositionProver::<_, PoseidonTranscript<RqNTT, CS>>::prove::<C, DP>(
             &lcccs,
             &wit,
             &mut prover_transcript,
             &ccs,
             &scheme,
+            W
         )
         .unwrap();
 

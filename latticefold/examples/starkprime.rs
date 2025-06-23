@@ -37,7 +37,7 @@ pub fn wit_and_ccs_gen_degree_three_non_scalar<
     CCCS<C, R>,
     Witness<R>,
     CCS<R>,
-    AjtaiCommitmentScheme<C, W, R>,
+    AjtaiCommitmentScheme<C, R>,
 ) {
     let mut rng = ark_std::test_rng();
 
@@ -55,11 +55,11 @@ pub fn wit_and_ccs_gen_degree_three_non_scalar<
         get_test_dummy_degree_three_ccs_non_scalar::<R, X_LEN, WIT_LEN, W>(&z, P::L, new_r1cs_rows);
     ccs.check_relation(&z).expect("R1CS invalid!");
 
-    let scheme: AjtaiCommitmentScheme<C, W, R> = AjtaiCommitmentScheme::rand(&mut rng);
+    let scheme: AjtaiCommitmentScheme<C, R> = AjtaiCommitmentScheme::rand(&mut rng, W);
     let wit: Witness<R> = Witness::from_w_ccs::<P>(w_ccs);
 
     let cm_i: CCCS<C, R> = CCCS {
-        cm: wit.commit::<C, W, P>(&scheme).unwrap(),
+        cm: wit.commit::<C, P>(&scheme, W).unwrap(),
         x_ccs,
     };
 
@@ -81,14 +81,14 @@ fn setup_example_environment<
     CCCS<C, RqNTT>,
     Witness<RqNTT>,
     CCS<RqNTT>,
-    AjtaiCommitmentScheme<C, W_STARK, RqNTT>,
+    AjtaiCommitmentScheme<C, RqNTT>,
 ) {
     let r1cs_rows = X_LEN + WIT_LEN + 1;
 
     let (cm_i, wit, ccs, scheme) =
-        wit_and_ccs_gen_degree_three_non_scalar::<X_LEN, C, WIT_LEN, W_STARK, DP, RqNTT>(r1cs_rows);
+        wit_and_ccs_gen_degree_three_non_scalar::<X_LEN, C, WIT_LEN, W, DP, RqNTT>(r1cs_rows);
 
-    let rand_w_ccs: Vec<RqNTT> = (0..WIT_LEN_STARK).map(|i| RqNTT::from(i as u64)).collect();
+    let rand_w_ccs: Vec<RqNTT> = (0..WIT_LEN).map(|i| RqNTT::from(i as u64)).collect();
     let wit_acc = Witness::from_w_ccs::<DP>(rand_w_ccs);
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
@@ -132,7 +132,7 @@ fn main() {
     println!("Generating proof...");
     let start = Instant::now();
 
-    let (_, _, proof) = NIFSProver::<C_STARK, W_STARK, RqNTT, StarkPrimeExampleDP, T>::prove(
+    let (_, _, proof) = NIFSProver::<C_STARK, RqNTT, StarkPrimeExampleDP, T>::prove(
         &acc,
         &wit_acc,
         &cm_i,
@@ -140,6 +140,7 @@ fn main() {
         &mut prover_transcript,
         &ccs,
         &scheme,
+        W_STARK
     )
     .unwrap();
     let duration = start.elapsed();

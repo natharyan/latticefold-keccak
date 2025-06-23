@@ -65,7 +65,7 @@ pub fn wit_and_ccs_gen<
     CCCS<C, R>,
     Witness<R>,
     CCS<R>,
-    AjtaiCommitmentScheme<C, W, R>,
+    AjtaiCommitmentScheme<C, R>,
 ) {
     let mut rng = ark_std::test_rng();
 
@@ -81,11 +81,11 @@ pub fn wit_and_ccs_gen<
     z.extend(&w_ccs);
     ccs.check_relation(&z).expect("R1CS invalid!");
 
-    let scheme: AjtaiCommitmentScheme<C, W, R> = AjtaiCommitmentScheme::rand(&mut rng);
+    let scheme: AjtaiCommitmentScheme<C, R> = AjtaiCommitmentScheme::rand(&mut rng, W);
     let wit: Witness<R> = Witness::from_w_ccs::<P>(w_ccs);
 
     let cm_i: CCCS<C, R> = CCCS {
-        cm: wit.commit::<C, W, P>(&scheme).unwrap(),
+        cm: wit.commit::<C, P>(&scheme, W).unwrap(),
         x_ccs,
     };
 
@@ -106,7 +106,7 @@ pub fn wit_and_ccs_gen_non_scalar<
     CCCS<C, R>,
     Witness<R>,
     CCS<R>,
-    AjtaiCommitmentScheme<C, W, R>,
+    AjtaiCommitmentScheme<C, R>,
 ) {
     let mut rng = ark_std::test_rng();
 
@@ -124,11 +124,11 @@ pub fn wit_and_ccs_gen_non_scalar<
         get_test_dummy_ccs_non_scalar::<R, X_LEN, WIT_LEN, W>(new_r1cs_rows, P::L, &z);
     ccs.check_relation(&z).expect("R1CS invalid!");
 
-    let scheme: AjtaiCommitmentScheme<C, W, R> = AjtaiCommitmentScheme::rand(&mut rng);
+    let scheme: AjtaiCommitmentScheme<C, R> = AjtaiCommitmentScheme::rand(&mut rng, W);
     let wit: Witness<R> = Witness::from_w_ccs::<P>(w_ccs);
 
     let cm_i: CCCS<C, R> = CCCS {
-        cm: wit.commit::<C, W, P>(&scheme).unwrap(),
+        cm: wit.commit::<C, P>(&scheme, W).unwrap(),
         x_ccs,
     };
 
@@ -165,7 +165,7 @@ pub fn wit_and_ccs_gen_degree_three_non_scalar<
     CCCS<C, R>,
     Witness<R>,
     CCS<R>,
-    AjtaiCommitmentScheme<C, W, R>,
+    AjtaiCommitmentScheme<C, R>,
 ) {
     let mut rng = ark_std::test_rng();
 
@@ -183,11 +183,11 @@ pub fn wit_and_ccs_gen_degree_three_non_scalar<
         get_test_dummy_degree_three_ccs_non_scalar::<R, X_LEN, WIT_LEN, W>(&z, P::L, new_r1cs_rows);
     ccs.check_relation(&z).expect("R1CS invalid!");
 
-    let scheme: AjtaiCommitmentScheme<C, W, R> = AjtaiCommitmentScheme::rand(&mut rng);
+    let scheme: AjtaiCommitmentScheme<C, R> = AjtaiCommitmentScheme::rand(&mut rng, W);
     let wit: Witness<R> = Witness::from_w_ccs::<P>(w_ccs);
 
     let cm_i: CCCS<C, R> = CCCS {
-        cm: wit.commit::<C, W, P>(&scheme).unwrap(),
+        cm: wit.commit::<C, P>(&scheme, W).unwrap(),
         x_ccs,
     };
 
@@ -223,7 +223,7 @@ impl<
         CCCS<C, R>,
         Witness<R>,
         CCS<R>,
-        AjtaiCommitmentScheme<C, W, R>,
+        AjtaiCommitmentScheme<C, R>,
     ) {
         let r1cs_rows = X_LEN + WIT_LEN + 1;
 
@@ -351,12 +351,13 @@ impl<
 
                 b.iter(|| {
                     let _ =
-                        LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<W, C, P>(
+                        LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<C, P>(
                             &lcccs,
                             &wit,
                             &mut prover_transcript,
                             &ccs,
                             &scheme,
+                            W
                         )
                         .expect("Failed to generate decomposition proof");
                 });
@@ -399,12 +400,13 @@ impl<
                 .expect("Failed to verify linearization proof");
 
                 let (_, _, _, proof) =
-                    LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<W, C, P>(
+                    LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<C, P>(
                         &lcccs,
                         &wit,
                         &mut prover_transcript,
                         &ccs,
                         &scheme,
+                        W
                     )
                     .expect("Failed to generate decomposition proof");
 
@@ -462,12 +464,13 @@ impl<
                 .unwrap();
 
                 let (mz_mles, _, wit_vec, decomposition_proof) =
-                    LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<W, C, P>(
+                    LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<C, P>(
                         &lcccs,
                         &wit,
                         &mut prover_transcript,
                         &ccs,
                         &scheme,
+                        W
                     )
                     .unwrap();
 
@@ -547,12 +550,13 @@ impl<
                 .expect("Failed to verify linearization proof");
 
                 let (mz_mles, _, wit_vec, decomposition_proof) =
-                    LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<W, C, P>(
+                    LFDecompositionProver::<_, PoseidonTranscript<R, CS>>::prove::<C, P>(
                         &lcccs,
                         &wit,
                         &mut prover_transcript,
                         &ccs,
                         &scheme,
+                        W
                     )
                     .expect("Failed to generate decomposition proof");
 
@@ -645,7 +649,7 @@ impl<
                 b.iter_batched(
                     || prover_transcript.clone(),
                     |mut bench_prover_transcript| {
-                        let _ = NIFSProver::<C, W, R, P, PoseidonTranscript<R, CS>>::prove(
+                        let _ = NIFSProver::<C, R, P, PoseidonTranscript<R, CS>>::prove(
                             &lcccs,
                             &wit,
                             &cm_i,
@@ -653,6 +657,7 @@ impl<
                             &mut bench_prover_transcript,
                             &ccs,
                             &scheme,
+                            W
                         )
                         .expect("Failed to generate proof");
                     },
@@ -697,7 +702,7 @@ impl<
                 )
                 .expect("Failed to verify linearization");
 
-                let (_, _, proof) = NIFSProver::<C, W, R, P, PoseidonTranscript<R, CS>>::prove(
+                let (_, _, proof) = NIFSProver::<C, R, P, PoseidonTranscript<R, CS>>::prove(
                     &lcccs,
                     &wit,
                     &cm_i,
@@ -705,6 +710,7 @@ impl<
                     &mut prover_transcript,
                     &ccs,
                     &scheme,
+                    W
                 )
                 .expect("Failed to generate proof");
 

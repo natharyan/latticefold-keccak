@@ -35,16 +35,16 @@ fn setup_test_environment<
     Witness<RqNTT>,
     CCCS<C, RqNTT>,
     CCS<RqNTT>,
-    AjtaiCommitmentScheme<C, W, RqNTT>,
+    AjtaiCommitmentScheme<C, RqNTT>,
 ) {
     let ccs = get_test_ccs::<RqNTT>(W, DP::L);
     let mut rng = test_rng();
     let (_, x_ccs, w_ccs) = get_test_z_split::<RqNTT>(input.unwrap_or(rng.gen_range(0..64)));
-    let scheme = AjtaiCommitmentScheme::rand(&mut rng);
+    let scheme = AjtaiCommitmentScheme::rand(&mut rng, W);
 
     let wit = Witness::from_w_ccs::<DP>(w_ccs);
     let cm_i = CCCS {
-        cm: wit.commit::<C, W, DP>(&scheme).unwrap(),
+        cm: wit.commit::<C, DP>(&scheme, WIT_LEN).unwrap(),
         x_ccs,
     };
 
@@ -65,7 +65,7 @@ fn test_compute_z_ccs() {
     assert_eq!(z_ccs[cm_i.x_ccs.len()], RqNTT::one());
 
     // Check commitment
-    assert_eq!(cm_i.cm, wit.commit::<C, W, StarkDP>(&scheme).unwrap());
+    assert_eq!(cm_i.cm, wit.commit::<C, StarkDP>(&scheme, W).unwrap());
 }
 
 #[test]

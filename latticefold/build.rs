@@ -423,9 +423,9 @@ fn write_ajtai_group(file: &mut File, benchmarks: &[AjtaiRecord], name: &str, ri
                 |b| {
                     let mut rng = ark_std::test_rng();
                     let witness: Vec<R> = (0..W).map(|_| R::rand(&mut rng)).collect();
-                    let ajtai_data: AjtaiCommitmentScheme<C, W, R> = AjtaiCommitmentScheme::rand(&mut rng);
+                    let ajtai_data: AjtaiCommitmentScheme<C, R> = AjtaiCommitmentScheme::rand(&mut rng, W);
                     b.iter(|| {
-                        let _ = ajtai_data.commit_ntt(&witness);
+                        let _ = ajtai_data.commit_ntt(&witness, W);
                     })
                 },
                 );

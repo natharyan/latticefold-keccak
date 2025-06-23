@@ -114,7 +114,7 @@ fn ret_ccs<
     println!("CCS check passed!\n");
     let scheme: AjtaiCommitmentScheme<C, R> = AjtaiCommitmentScheme::rand(&mut rng, w);
     let wit: Witness<R> = Witness::from_w_ccs::<P>(w_ccs);
-    // TODO: fix from here
+
     let cm_i: CCCS<C, R> = CCCS {
         cm: wit.commit::<C, P>(&scheme, w).unwrap(),
         x_ccs,
@@ -145,20 +145,20 @@ pub fn setup_environment<
     let (cm_i, wit, ccs, scheme) =
         ret_ccs::<C, DP, RqNTT, F>(cs.clone(), x_r1cs, w_r1cs.clone(), wit_len, w);
 
-    // TODO: match with the linearization protocol
-    let ring_w_css: Vec<RqNTT> = w_r1cs
-        .clone() 
-        .into_iter()
-        .map(|bit| {
-            // expect boolean witnesses from r1cs-std
-            if bit == F::zero() {
-                RqNTT::from(0 as u64)
-            } else {
-                RqNTT::from(1 as u64)
-            }
-        })
-        .collect();
-    let wit_acc = Witness::from_w_ccs::<DP>(ring_w_css);
+    // let ring_w_css: Vec<RqNTT> = w_r1cs
+    //     .clone() 
+    //     .into_iter()
+    //     .map(|bit| {
+    //         // expect boolean witnesses from r1cs-std
+    //         if bit == F::zero() {
+    //             RqNTT::from(0 as u64)
+    //         } else {
+    //             RqNTT::from(1 as u64)
+    //         }
+    //     })
+    //     .collect();
+    let ring_w_ccs:Vec<RqNTT>  = fieldvec_to_ringvec(&w_r1cs); // equal to wit for a single instance, else an accumulation of previous instances
+    let wit_acc = Witness::from_w_ccs::<DP>(ring_w_ccs);
     
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 

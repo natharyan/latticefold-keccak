@@ -19,8 +19,7 @@ use crate::{
 /// `NTT` is a suitable cyclotomic ring.
 #[derive(Clone, Debug)]
 pub struct AjtaiCommitmentScheme<const C: usize, NTT: OverField> {
-    matrix: Vec<Vec<NTT>>,
-    W: usize,
+    matrix: Vec<Vec<NTT>>
 }
 
 impl<const C: usize, NTT: OverField> TryFrom<(Vec<Vec<NTT>>, usize)>
@@ -52,8 +51,7 @@ impl<const C: usize, NTT: OverField> TryFrom<(Vec<Vec<NTT>>, usize)>
         }
 
         Ok(Self {
-            matrix: ajtai_matrix,
-            W: w,
+            matrix: ajtai_matrix
         })
     }
 }
@@ -62,8 +60,7 @@ impl<const C: usize, NTT: OverField> AjtaiCommitmentScheme<C, NTT> {
     /// Returns a random Ajtai commitment matrix
     pub fn rand<Rng: rand::Rng + ?Sized>(rng: &mut Rng, w: usize) -> Self {
         Self {
-            matrix: vec![vec![NTT::rand(rng); w]; C],
-            W: w
+            matrix: vec![vec![NTT::rand(rng); w]; C]
         }
     }
 }

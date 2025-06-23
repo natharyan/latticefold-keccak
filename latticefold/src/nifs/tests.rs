@@ -26,16 +26,16 @@ fn setup_test_environment<
     CCCS<C, RqNTT>,  // cm_i
     Witness<RqNTT>,  // w_i
     CCS<RqNTT>,
-    AjtaiCommitmentScheme<C, W, RqNTT>,
+    AjtaiCommitmentScheme<C, RqNTT>,
 ) {
     let ccs = get_test_ccs::<RqNTT>(W, DP::L);
     let mut rng = test_rng();
     let (_, x_ccs, w_ccs) = get_test_z_split::<RqNTT>(rng.gen_range(0..64));
-    let scheme = AjtaiCommitmentScheme::rand(&mut rng);
+    let scheme = AjtaiCommitmentScheme::rand(&mut rng, W);
 
     let wit_i = Witness::from_w_ccs::<DP>(w_ccs);
     let cm_i = CCCS {
-        cm: wit_i.commit::<C, W, DP>(&scheme).unwrap(),
+        cm: wit_i.commit::<C, DP>(&scheme, W).unwrap(),
         x_ccs: x_ccs.clone(),
     };
 
@@ -68,7 +68,7 @@ fn test_nifs_prove<
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let result = NIFSProver::<C, W, RqNTT, DP, T>::prove(
+    let result = NIFSProver::<C, RqNTT, DP, T>::prove(
         &acc,
         &w_acc,
         &cm_i,
@@ -76,6 +76,7 @@ fn test_nifs_prove<
         &mut transcript,
         &ccs,
         &scheme,
+        W,
     );
 
     assert!(result.is_ok());
@@ -96,7 +97,7 @@ fn test_nifs_verify<
     let mut prover_transcript = PoseidonTranscript::<RqNTT, CS>::default();
     let mut verifier_transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let (_, _, proof) = NIFSProver::<C, W, RqNTT, DP, T>::prove(
+    let (_, _, proof) = NIFSProver::<C, RqNTT, DP, T>::prove(
         &acc,
         &w_acc,
         &cm_i,
@@ -104,6 +105,7 @@ fn test_nifs_verify<
         &mut prover_transcript,
         &ccs,
         &scheme,
+        W
     )
     .unwrap();
 

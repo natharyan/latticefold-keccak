@@ -32,29 +32,29 @@ impl<F: PrimeField> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
         let b: Vec<Vec<(F, usize)>> = matrices.b;
         let c: Vec<Vec<(F, usize)>> = matrices.c;
 
-        let a_n_rows = a.len();
-        let a_n_cols = a
-            .iter()
-            .flat_map(|row| row.iter().map(|&(_, col)| col))
-            .max()
-            .map_or(0, |max_col| max_col + 1);
-        println!("a: ({}, {})", a_n_rows, a_n_cols);
+        // let a_n_rows = a.len();
+        // let a_n_cols = a
+        //     .iter()
+        //     .flat_map(|row| row.iter().map(|&(_, col)| col))
+        //     .max()
+        //     .map_or(0, |max_col| max_col + 1);
+        // println!("a: ({}, {})", a_n_rows, a_n_cols);
 
-        let b_n_rows = b.len();
-        let b_n_cols = b
-            .iter()
-            .flat_map(|row| row.iter().map(|&(_, col)| col))
-            .max()
-            .map_or(0, |max_col| max_col + 1);
-        println!("b: ({}, {})", b_n_rows, b_n_cols);
+        // let b_n_rows = b.len();
+        // let b_n_cols = b
+        //     .iter()
+        //     .flat_map(|row| row.iter().map(|&(_, col)| col))
+        //     .max()
+        //     .map_or(0, |max_col| max_col + 1);
+        // println!("b: ({}, {})", b_n_rows, b_n_cols);
 
-        let c_n_rows = c.len();
+        // let c_n_rows = c.len();
         let c_n_cols = c
             .iter()
             .flat_map(|row| row.iter().map(|&(_, col)| col))
             .max()
             .map_or(0, |max_col| max_col + 1);
-        println!("c: ({}, {})\n", c_n_rows, c_n_cols);
+        // println!("c: ({}, {})\n", c_n_rows, c_n_cols);
 
         let a = a.r1csmat_to_sparsematrix(c_n_cols);
         let b = b.r1csmat_to_sparsematrix(c_n_cols);

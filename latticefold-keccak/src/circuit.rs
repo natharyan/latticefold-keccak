@@ -106,8 +106,8 @@ fn ret_ccs<
     let w_ccs: Vec<R> = fieldvec_to_ringvec(&w_r1cs);
     let one = R::one();
 
-    let mut z = vec![one];
-    z.extend(&x_ccs);
+    let mut z = x_ccs.clone();
+    z.extend(vec![one]);
     z.extend(&w_ccs);
     let ccs: CCS<R> = r1cs_to_ccs::<F, R>(cs.clone(), &z, P::L, x_r1cs.len(), wit_len, w);
     ccs.check_relation(&z).expect("R1CS invalid!");
@@ -157,9 +157,13 @@ pub fn setup_environment<
     //         }
     //     })
     //     .collect();
-    let ring_w_ccs:Vec<RqNTT>  = fieldvec_to_ringvec(&w_r1cs); // equal to wit for a single instance, else an accumulation of previous instances
-    let wit_acc = Witness::from_w_ccs::<DP>(ring_w_ccs);
     
+    // aggregate the witnesses into w_ccs
+    let ring_w_ccs:Vec<RqNTT>  =  wit.w_ccs
+                                    .iter()
+                                    .map(|elem| RqNTT::from(elem.clone()))
+                                    .collect();
+    let wit_acc = Witness::from_w_ccs::<DP>(ring_w_ccs);
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
     let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove(

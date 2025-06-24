@@ -146,12 +146,14 @@ impl<
             transcript,
             ccs,
         )?;
+
         let decomposed_acc = LFDecompositionVerifier::<_, T>::verify::<C, P>(
             acc,
             &proof.decomposition_proof_l,
             transcript,
             ccs,
         )?;
+
         let decomposed_cm_i = LFDecompositionVerifier::<_, T>::verify::<C, P>(
             &linearized_cm_i,
             &proof.decomposition_proof_r,

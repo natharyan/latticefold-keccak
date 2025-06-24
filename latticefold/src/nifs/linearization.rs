@@ -6,7 +6,7 @@ pub use self::structs::*;
 use self::utils::{compute_u, prepare_lin_sumcheck_polynomial, sumcheck_polynomial_comb_fn};
 use super::error::LinearizationError;
 use crate::{
-    arith::{Instance, Witness, CCCS, CCS, LCCCS},
+    arith::{Arith, Instance, Witness, CCCS, CCS, LCCCS},
     ark_base::*,
     nifs::linearization::utils::SqueezeBeta,
     transcript::Transcript,
@@ -154,6 +154,7 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LinearizationProver<NTT, T>
         // Step 2: Sum check protocol.
         // z_ccs vector, i.e. concatenation x || 1 || w.
         let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
+        ccs.check_relation(&z_ccs).expect("CCS invalid!");
         let (g_mles, g_degree, Mz_mles) = Self::construct_polynomial_g(&z_ccs, transcript, ccs)?;
 
         let comb_fn = |vals: &[NTT]| -> NTT { sumcheck_polynomial_comb_fn(vals, ccs) };

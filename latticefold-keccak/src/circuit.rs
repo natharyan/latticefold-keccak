@@ -26,7 +26,7 @@ use latticefold::{
 use stark_rings::Ring;
 use stark_rings_linalg::SparseMatrix;
 
-use crate::util::{fieldvec_to_ringvec, hadamard_ret_d, pad_matrtixrows_to, ConstraintSystemExt};
+use crate::util::{fieldvec_to_ringvec, hadamard, pad_matrtixrows_to, ConstraintSystemExt};
 
 pub fn z_split<F: PrimeField>(cs: ConstraintSystemRef<F>) -> (usize, usize, Vec<F>, Vec<F>) {
     let public_inputs = cs.ret_instance();
@@ -59,11 +59,8 @@ pub fn r1cs_to_ccs<F: PrimeField, R: Ring>(
     } else {
         r1cs_rows
     };
-    let d_mat = hadamard_ret_d(a.clone(), b.clone(), c.clone(), z, new_r1cs_rows);
+    // let c_z = hadamard(a.clone(), b.clone(), c.clone(), z, new_r1cs_rows); // check
 
-    // TODO: this is causing an out of memory error
-    // a = pad_matrtixrows_to(a.clone(), c.n_cols);
-    // b = pad_matrtixrows_to(b.clone(), c.n_cols);
     // println!("rows padded!");
     let mut ccs = CCS {
         m: W,
@@ -74,8 +71,10 @@ pub fn r1cs_to_ccs<F: PrimeField, R: Ring>(
         d: 3,
         s: log2(W) as usize,
         s_prime: x_len + wit_len + 1,
-        M: vec![a, b, c, d_mat],
-        S: vec![vec![0, 1, 2], vec![3]],
+        // M: vec![a, b, c, d_mat],
+        // S: vec![vec![0, 1, 2], vec![3]],
+        M: vec![a, b, c],
+        S: vec![vec![0, 1], vec![2]],
         c: vec![R::one(), R::one().neg()],
     };
     let len = std::cmp::max((ccs.n - ccs.l - 1) * l, ccs.m).next_power_of_two();
@@ -106,9 +105,9 @@ fn ret_ccs<
     let w_ccs: Vec<R> = fieldvec_to_ringvec(&w_r1cs);
     let one = R::one();
 
-    let mut z = x_ccs.clone();
-    z.extend(vec![one]);
-    z.extend(&w_ccs);
+    let mut z = vec![one];
+        z.extend(&x_ccs);
+        z.extend(&w_ccs);
     let ccs: CCS<R> = r1cs_to_ccs::<F, R>(cs.clone(), &z, P::L, x_r1cs.len(), wit_len, w);
     ccs.check_relation(&z).expect("R1CS invalid!");
     println!("CCS check passed!\n");
@@ -144,19 +143,6 @@ pub fn setup_environment<
     let (x_len, wit_len, x_r1cs, w_r1cs) = z_split(cs.clone());
     let (cm_i, wit, ccs, scheme) =
         ret_ccs::<C, DP, RqNTT, F>(cs.clone(), x_r1cs, w_r1cs.clone(), wit_len, w);
-
-    // let ring_w_css: Vec<RqNTT> = w_r1cs
-    //     .clone() 
-    //     .into_iter()
-    //     .map(|bit| {
-    //         // expect boolean witnesses from r1cs-std
-    //         if bit == F::zero() {
-    //             RqNTT::from(0 as u64)
-    //         } else {
-    //             RqNTT::from(1 as u64)
-    //         }
-    //     })
-    //     .collect();
     
     // aggregate the witnesses into w_ccs
     let ring_w_ccs:Vec<RqNTT>  =  wit.w_ccs

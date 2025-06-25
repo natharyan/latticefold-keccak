@@ -6,7 +6,7 @@ use ark_serialize::{CanonicalSerialize, Compress};
 use ark_std::{rand::Rng, vec::Vec, UniformRand};
 use arkworks_keccak::{
     constraints::{KeccakCircuit, KeccakMode},
-    util::{bytes_to_bitvec, sha3_256, shake_256},
+    util::{bytes_to_bitvec, sha3_256, shake_128, shake_256},
 };
 use cyclotomic_rings::{
     challenge_set::LatticefoldChallengeSet,
@@ -36,11 +36,11 @@ type T = PoseidonTranscript<RqNTT, CS>;
 
 fn main() {
     let mut rng = ark_std::rand::thread_rng();
-    let preimage_length_bytes = rng.gen_range(1..=256);
+    let preimage_length_bytes = rng.gen_range(1..=10);
     let preimage: Vec<u8> = (0..preimage_length_bytes).map(|_| rng.r#gen()).collect();
-    let d: usize = rng.gen_range(100..=4032);
+    let d: usize = rng.gen_range(50..=100);
     println!("input length: {} bytes", preimage.len());
-    println!("d: {}", d);
+    println!("d: {} bits", d);
     let expected = sha3_256(&preimage); // change
     let preimage = bytes_to_bitvec::<Fr>(&preimage);
     let circuit = KeccakCircuit::<Fr>::init_circuit(
@@ -104,7 +104,7 @@ fn main() {
         .unwrap();
     let uncompressed_size = serialized_proof.len();
     println!(
-        "Proof (without compression) size: {}",
+        "Proof (without compression) size: {}\n",
         humansize::format_size(uncompressed_size, humansize::BINARY)
     );
 

@@ -32,34 +32,68 @@ impl<F: PrimeField> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
         let b: Vec<Vec<(F, usize)>> = matrices.b;
         let c: Vec<Vec<(F, usize)>> = matrices.c;
 
-        // let a_n_rows = a.len();
-        // let a_n_cols = a
-        //     .iter()
-        //     .flat_map(|row| row.iter().map(|&(_, col)| col))
-        //     .max()
-        //     .map_or(0, |max_col| max_col + 1);
-        // println!("a: ({}, {})", a_n_rows, a_n_cols);
+        let a_n_rows = a.len();
+        let a_n_cols = a
+            .iter()
+            .flat_map(|row| row.iter().map(|&(_, col)| col))
+            .max()
+            .map_or(0, |max_col| max_col + 1);
+        println!("a: ({}, {})", a_n_rows, a_n_cols);
 
-        // let b_n_rows = b.len();
-        // let b_n_cols = b
-        //     .iter()
-        //     .flat_map(|row| row.iter().map(|&(_, col)| col))
-        //     .max()
-        //     .map_or(0, |max_col| max_col + 1);
-        // println!("b: ({}, {})", b_n_rows, b_n_cols);
+        let b_n_rows = b.len();
+        let b_n_cols = b
+            .iter()
+            .flat_map(|row| row.iter().map(|&(_, col)| col))
+            .max()
+            .map_or(0, |max_col| max_col + 1);
+        println!("b: ({}, {})", b_n_rows, b_n_cols);
 
-        // let c_n_rows = c.len();
+        let c_n_rows = c.len();
         let c_n_cols = c
             .iter()
             .flat_map(|row| row.iter().map(|&(_, col)| col))
             .max()
             .map_or(0, |max_col| max_col + 1);
-        // println!("c: ({}, {})\n", c_n_rows, c_n_cols);
+        println!("c: ({}, {})\n", c_n_rows, c_n_cols);
 
-        let a = a.r1csmat_to_sparsematrix(c_n_cols);
-        let b = b.r1csmat_to_sparsematrix(c_n_cols);
-        let c = c.r1csmat_to_sparsematrix(c_n_cols);
-        (a, b, c)
+        let a_r = a.r1csmat_to_sparsematrix(c_n_cols);
+        let b_r = b.r1csmat_to_sparsematrix(c_n_cols);
+        let c_r = c.r1csmat_to_sparsematrix(c_n_cols);
+
+        let mut z = vec![F::from(1u128)];
+        z.extend(self.ret_instance()[1..].iter().cloned());
+        z.extend(self.ret_witness());
+        let mut a_z: Vec<F> = Vec::new();
+        for row in a.iter(){
+            let mut sum = F::from(0 as u128);
+            for &(value, index) in row {
+                sum += value * z[index];
+            }
+            a_z.push(sum);
+        }
+        let mut b_z: Vec<F> = Vec::new();
+        for row in b.iter(){
+            let mut sum = F::from(0 as u128);
+            for &(value, index) in row {
+                sum += value * z[index];
+            }
+            b_z.push(sum);
+        }
+        let mut c_z: Vec<F> = Vec::new();
+        for row in c.iter(){
+            let mut sum = F::from(0 as u128);
+            for &(value, index) in row {
+                sum += value * z[index];
+            }
+            c_z.push(sum);
+        }
+        // not all elements of c_z are 0;
+        for i in 0..c_z.len() {
+            assert_eq!(a_z[i]*b_z[i],  c_z[i]);
+        }
+        println!("R1CS check passed!");
+
+        (a_r, b_r, c_r)
     }
 }
 
@@ -87,15 +121,15 @@ impl<F: PrimeField, R: Ring> MatrixExt<F, R> for Vec<Vec<(F, usize)>> {
 }
 
 // find one such solution for d such that (d . z) = (a . z)o(b . z)o(c . z) = ((diag(a . z) . diag(b . z)) . c) . z
-pub fn hadamard_ret_d<R: Ring>(
+pub fn hadamard<R: Ring>(
     a: SparseMatrix<R>,
     b: SparseMatrix<R>,
     c: SparseMatrix<R>,
     z: &[R],
     rows: usize,
-) -> SparseMatrix<R> {
+) -> Vec<R> {
     assert_eq!(
-        c.n_cols,
+        a.n_cols,
         z.len(),
         "Length of witness vector must be equal to ccs width"
     );
@@ -108,18 +142,18 @@ pub fn hadamard_ret_d<R: Ring>(
     };
 
     let matvec_mult_a_z = sparse_matrix_mult_vec(&a.coeffs, z);
-    let matvec_mult_b_z = sparse_matrix_mult_vec(&b.coeffs, z);
-    let mut diag_hadamard_a_b_z = Vec::new();
-    for i in 0..rows {
-        diag_hadamard_a_b_z.push(matvec_mult_a_z[i] * matvec_mult_b_z[i]);
-    }
-    for (i, row) in c.coeffs.iter().enumerate() {
+    for (i, row) in b.coeffs.iter().enumerate() {
         for (elem, col) in row {
-            matrix.coeffs[i].push((diag_hadamard_a_b_z[i] * (*elem), *col));
+            matrix.coeffs[i].push((matvec_mult_a_z[i] * (*elem), *col));
         }
     }
+    let c_z: Vec<R> = sparse_matrix_mult_vec(&c.coeffs, z);
+    let a_b_z: Vec<R> = sparse_matrix_mult_vec(&matrix.coeffs, z);
+    for (i, elem) in a_b_z.iter().enumerate(){
+        assert_eq!(a_b_z[i] - c_z[i], R::from(0 as u128));
+    }
+    a_b_z
 
-    matrix
 }
 
 pub fn field_to_ring<R, F>(elem: F) -> R

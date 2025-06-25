@@ -36,11 +36,11 @@ type T = PoseidonTranscript<RqNTT, CS>;
 
 fn main() {
     let mut rng = ark_std::rand::thread_rng();
-    let preimage_length_bytes = rng.gen_range(1..=256);
+    let preimage_length_bytes = rng.gen_range(1..=10);
     let preimage: Vec<u8> = (0..preimage_length_bytes).map(|_| rng.r#gen()).collect();
-    let d: usize = rng.gen_range(100..=4032);
+    let d: usize = rng.gen_range(50..=100);
     println!("input length: {} bytes", preimage.len());
-    println!("d: {}", d);
+    println!("d: {} bits", d);
     let expected = shake_128(&preimage, d / 8); // change
     let preimage = bytes_to_bitvec::<Fr>(&preimage);
     let circuit = KeccakCircuit::<Fr>::init_circuit(
@@ -104,7 +104,7 @@ fn main() {
         .unwrap();
     let uncompressed_size = serialized_proof.len();
     println!(
-        "Proof (without compression) size: {}",
+        "Proof (without compression) size: {}\n",
         humansize::format_size(uncompressed_size, humansize::BINARY)
     );
 

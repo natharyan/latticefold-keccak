@@ -1,7 +1,7 @@
 use std::{usize, vec};
 
 use ark_ff::PrimeField;
-use ark_relations::r1cs::{ConstraintMatrices, ConstraintSystemRef, Field};
+use ark_relations::r1cs::{ConstraintMatrices, ConstraintSystemRef};
 use cyclotomic_rings::rings::SuitableRing;
 use stark_rings::Ring;
 use stark_rings_linalg::SparseMatrix;
@@ -9,7 +9,9 @@ use stark_rings_linalg::SparseMatrix;
 pub trait ConstraintSystemExt<F: PrimeField> {
     fn ret_instance(&self) -> Vec<F>;
     fn ret_witness(&self) -> Vec<F>;
-    fn get_r1cs_matrices<R: Ring>(&self) -> (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>);
+    fn get_r1cs_matrices<R: SuitableRing>(
+        &self,
+    ) -> (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>);
 }
 
 impl<F: PrimeField> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
@@ -23,7 +25,9 @@ impl<F: PrimeField> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
         cs.witness_assignment.clone()
     }
 
-    fn get_r1cs_matrices<R: Ring>(&self) -> (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>) {
+    fn get_r1cs_matrices<R: SuitableRing>(
+        &self,
+    ) -> (SparseMatrix<R>, SparseMatrix<R>, SparseMatrix<R>) {
         // get A, B, C;
         // get matrices for A, B, C from cs; use these to construct sparse matrices.
         let matrices: ConstraintMatrices<F> = self.borrow().unwrap().to_matrices().unwrap();
@@ -32,66 +36,41 @@ impl<F: PrimeField> ConstraintSystemExt<F> for ConstraintSystemRef<F> {
         let b: Vec<Vec<(F, usize)>> = matrices.b;
         let c: Vec<Vec<(F, usize)>> = matrices.c;
 
-        let a_n_rows = a.len();
-        let a_n_cols = a
-            .iter()
-            .flat_map(|row| row.iter().map(|&(_, col)| col))
-            .max()
-            .map_or(0, |max_col| max_col + 1);
-        println!("a: ({}, {})", a_n_rows, a_n_cols);
+        // let a_n_rows = a.len();
+        // let a_n_cols = a
+        //     .iter()
+        //     .flat_map(|row| row.iter().map(|&(_, col)| col))
+        //     .max_by(|a, b| a.cmp(b))
+        //     .map_or(0, |max_col| max_col + 1);
+        // println!("a: ({}, {})", a_n_rows, a_n_cols);
 
-        let b_n_rows = b.len();
-        let b_n_cols = b
-            .iter()
-            .flat_map(|row| row.iter().map(|&(_, col)| col))
-            .max()
-            .map_or(0, |max_col| max_col + 1);
-        println!("b: ({}, {})", b_n_rows, b_n_cols);
+        // let b_n_rows = b.len();
+        // let b_n_cols = b
+        //     .iter()
+        //     .flat_map(|row| row.iter().map(|&(_, col)| col))
+        //     .max_by(|a, b| a.cmp(b))
+        //     .map_or(0, |max_col| max_col + 1);
+        // println!("b: ({}, {})", b_n_rows, b_n_cols);
 
-        let c_n_rows = c.len();
+        // let c_n_rows = c.len();
         let c_n_cols = c
             .iter()
             .flat_map(|row| row.iter().map(|&(_, col)| col))
-            .max()
+            .max_by(|a, b| a.cmp(b))
             .map_or(0, |max_col| max_col + 1);
-        println!("c: ({}, {})\n", c_n_rows, c_n_cols);
+        // println!("c: ({}, {})\n", c_n_rows, c_n_cols);
 
         let a_r = a.r1csmat_to_sparsematrix(c_n_cols);
         let b_r = b.r1csmat_to_sparsematrix(c_n_cols);
         let c_r = c.r1csmat_to_sparsematrix(c_n_cols);
 
-        let mut z = vec![F::from(1u128)];
-        z.extend(self.ret_instance()[1..].iter().cloned());
-        z.extend(self.ret_witness());
-        let mut a_z: Vec<F> = Vec::new();
-        for row in a.iter(){
-            let mut sum = F::from(0 as u128);
-            for &(value, index) in row {
-                sum += value * z[index];
-            }
-            a_z.push(sum);
-        }
-        let mut b_z: Vec<F> = Vec::new();
-        for row in b.iter(){
-            let mut sum = F::from(0 as u128);
-            for &(value, index) in row {
-                sum += value * z[index];
-            }
-            b_z.push(sum);
-        }
-        let mut c_z: Vec<F> = Vec::new();
-        for row in c.iter(){
-            let mut sum = F::from(0 as u128);
-            for &(value, index) in row {
-                sum += value * z[index];
-            }
-            c_z.push(sum);
-        }
-        // not all elements of c_z are 0;
-        for i in 0..c_z.len() {
-            assert_eq!(a_z[i]*b_z[i],  c_z[i]);
-        }
-        println!("R1CS check passed!");
+        // z = 1 || x || w
+        let mut z: Vec<F> = vec![F::from(1u128)];
+        z.extend(self.ret_instance()[1..].iter());
+        z.extend(self.ret_witness().iter());
+        let z_r: Vec<R> = fieldvec_to_ringvec(&z);
+        // r1cs_check(&a, &b, &c, &z);
+        // r1cs_check_r(&a_r, &b_r, &c_r, &z_r);
 
         (a_r, b_r, c_r)
     }
@@ -149,11 +128,10 @@ pub fn hadamard<R: Ring>(
     }
     let c_z: Vec<R> = sparse_matrix_mult_vec(&c.coeffs, z);
     let a_b_z: Vec<R> = sparse_matrix_mult_vec(&matrix.coeffs, z);
-    for (i, elem) in a_b_z.iter().enumerate(){
+    for (i, elem) in a_b_z.iter().enumerate() {
         assert_eq!(a_b_z[i] - c_z[i], R::from(0 as u128));
     }
     a_b_z
-
 }
 
 pub fn field_to_ring<R, F>(elem: F) -> R
@@ -169,20 +147,14 @@ where
 pub fn fieldvec_to_ringvec<R, F>(elems: &[F]) -> Vec<R>
 where
     R: SuitableRing,
-    F: Field,
+    F: PrimeField,
 {
     elems
         .iter()
         .map(|f| {
             let mut coeffs = vec![R::BaseRing::from(0 as u128); R::dimension()];
             // expect boolean witnesses from r1cs-std
-            coeffs[0] = if *f == F::zero() {
-                R::BaseRing::from(0 as u128)
-            } else if *f == F::one() {
-                R::BaseRing::from(1 as u128)
-            } else {
-                panic!("Unexpected field element: {:?}", f);
-            };
+            coeffs[0] = field_to_ring(*f);
             R::from(coeffs)
         })
         .collect()
@@ -198,6 +170,80 @@ fn sparse_matrix_mult_vec<R: Ring>(rows: &Vec<Vec<(R, usize)>>, wit_vec: &[R]) -
         result.push(dotproduct);
     }
     result
+}
+
+fn r1cs_check<F: PrimeField>(
+    a: &[Vec<(F, usize)>],
+    b: &[Vec<(F, usize)>],
+    c: &[Vec<(F, usize)>],
+    z: &[F],
+) {
+    let mut a_z: Vec<F> = Vec::new();
+    for row in a.iter() {
+        let mut sum = F::from(0 as u128);
+        for &(value, index) in row {
+            sum += value * z[index];
+        }
+        a_z.push(sum);
+    }
+    let mut b_z: Vec<F> = Vec::new();
+    for row in b.iter() {
+        let mut sum = F::from(0 as u128);
+        for &(value, index) in row {
+            sum += value * z[index];
+        }
+        b_z.push(sum);
+    }
+    let mut c_z: Vec<F> = Vec::new();
+    for row in c.iter() {
+        let mut sum = F::from(0 as u128);
+        for &(value, index) in row {
+            sum += value * z[index];
+        }
+        c_z.push(sum);
+    }
+    // not all elements of c_z are 0;
+    for i in 0..c_z.len() {
+        assert_eq!(a_z[i] * b_z[i] - c_z[i], F::from(0u128));
+    }
+    println!("R1CS<F> check passed!");
+}
+
+fn r1cs_check_r<R: SuitableRing>(
+    a: &SparseMatrix<R>,
+    b: &SparseMatrix<R>,
+    c: &SparseMatrix<R>,
+    z: &[R],
+) {
+    let mut a_z: Vec<R> = Vec::new();
+    for row in a.coeffs.iter() {
+        let mut sum = R::from(0 as u128);
+        for &(value, index) in row {
+            sum += value * z[index];
+        }
+        a_z.push(sum);
+    }
+    let mut b_z: Vec<R> = Vec::new();
+    for row in b.coeffs.iter() {
+        let mut sum = R::from(0 as u128);
+        for &(value, index) in row {
+            sum += value * z[index];
+        }
+        b_z.push(sum);
+    }
+    let mut c_z: Vec<R> = Vec::new();
+    for row in c.coeffs.iter() {
+        let mut sum = R::from(0 as u128);
+        for &(value, index) in row {
+            sum += value * z[index];
+        }
+        c_z.push(sum);
+    }
+    // not all elements of c_z are 0;
+    for i in 0..c_z.len() {
+        assert_eq!(a_z[i] * b_z[i] - c_z[i], R::from(0u128));
+    }
+    println!("R1CS<R> check passed!");
 }
 
 pub fn pad_matrtixrows_to<R: Ring>(

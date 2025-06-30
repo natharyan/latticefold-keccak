@@ -4,6 +4,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use serde::Deserialize;
 
+
 fn main() -> Result<(), String> {
     generate_code_for_examples();
 
@@ -210,6 +211,7 @@ fn parse_benches() {
 
     writeln!(&mut linearization_file, "use utils::{{Bencher, R1CS}};").unwrap();
     writeln!(&mut linearization_file, "use cyclotomic_rings::rings::{{BabyBearChallengeSet, BabyBearRingNTT, FrogChallengeSet, FrogRingNTT, GoldilocksChallengeSet, GoldilocksRingNTT, StarkChallengeSet, StarkRingNTT}};").unwrap();
+    writeln!(&mut linearization_file, "use ark_bls12_381::Fr;").unwrap();
 
     let decomposition_file_path = Path::new(&out_dir).join("generated_decomposition_benchmarks.rs");
     let mut decomposition_file =
@@ -217,6 +219,7 @@ fn parse_benches() {
 
     writeln!(&mut decomposition_file, "use utils::{{Bencher, R1CS}};").unwrap();
     writeln!(&mut decomposition_file, "use cyclotomic_rings::rings::{{BabyBearChallengeSet, BabyBearRingNTT, FrogChallengeSet, FrogRingNTT, GoldilocksChallengeSet, GoldilocksRingNTT, StarkChallengeSet, StarkRingNTT}};").unwrap();
+    writeln!(&mut decomposition_file, "use ark_bls12_381::Fr;").unwrap();
 
     let folding_file_path = Path::new(&out_dir).join("generated_folding_benchmarks.rs");
     let mut folding_file =
@@ -224,6 +227,7 @@ fn parse_benches() {
 
     writeln!(&mut folding_file, "use utils::{{Bencher, R1CS}};").unwrap();
     writeln!(&mut folding_file, "use cyclotomic_rings::rings::{{BabyBearChallengeSet, BabyBearRingNTT, FrogChallengeSet, FrogRingNTT, GoldilocksChallengeSet, GoldilocksRingNTT, StarkChallengeSet, StarkRingNTT}};").unwrap();
+    writeln!(&mut folding_file, "use ark_bls12_381::Fr;").unwrap();
 
     let e2e_file_path = Path::new(&out_dir).join("generated_e2e_benchmarks.rs");
     let mut e2e_file =
@@ -231,6 +235,7 @@ fn parse_benches() {
 
     writeln!(&mut e2e_file, "use utils::{{Bencher, R1CS}};").unwrap();
     writeln!(&mut e2e_file, "use cyclotomic_rings::rings::{{BabyBearChallengeSet, BabyBearRingNTT, FrogChallengeSet, FrogRingNTT, GoldilocksChallengeSet, GoldilocksRingNTT, StarkChallengeSet, StarkRingNTT}};").unwrap();
+    writeln!(&mut e2e_file, "use ark_bls12_381::Fr;").unwrap();
 
     let mut files = (
         linearization_file,
@@ -572,7 +577,7 @@ fn write_function(
                     type CS = #cs;
                     type R = #ring;
 
-                    type BlockBencher = Bencher<X_LEN, C, WIT_LEN, W, DP, R, CS>;
+                    type BlockBencher = Bencher<X_LEN, C, WIT_LEN, W, DP, R, CS, Fr>;
 
                     if X_LEN == ENV.x_len.unwrap_or(X_LEN) &&
                         C == ENV.kappa.unwrap_or(C) &&

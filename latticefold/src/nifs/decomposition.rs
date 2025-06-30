@@ -1,5 +1,6 @@
 #![allow(non_snake_case, clippy::upper_case_acronyms)]
 
+use ark_ff::PrimeField;
 use ark_std::{cfg_into_iter, cfg_iter, iterable::Iterable};
 use cyclotomic_rings::rings::SuitableRing;
 use num_traits::Zero;
@@ -53,7 +54,6 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> DecompositionProver<NTT, T>
         let wit_s: Vec<Witness<NTT>> = Self::decompose_witness::<P>(wit);
 
         let x_s = Self::compute_x_s::<P>(cm_i.x_w.clone(), cm_i.h);
-
         let y_s: Vec<Commitment<C, NTT>> = Self::commit_witnesses::<C, P>(&wit_s, scheme, cm_i, w)?;
 
         let v_s: Vec<Vec<NTT>> = Self::compute_v_s(&wit_s, &cm_i.r)?;
@@ -137,7 +137,7 @@ impl<NTT: OverField, T: Transcript<NTT>> DecompositionVerifier<NTT, T>
 
         let should_equal_u0: Vec<NTT> = Self::recompose_u(&proof.u_s, &b_s)?;
 
-        if should_equal_u0 != cm_i.u {
+        if should_equal_u0 != Self::recompose_u(&[cm_i.u.clone()], &b_s)? {
             return Err(DecompositionError::RecomposedError);
         }
 
@@ -149,13 +149,14 @@ impl<NTT: OverField, T: Transcript<NTT>> DecompositionVerifier<NTT, T>
             }
         }
 
-        let (should_equal_xw, should_equal_h) = Self::recompose_xw_and_h(&proof.x_s, &b_s)?;
+        // let (should_equal_xw, should_equal_h) = Self::recompose_xw_and_h(&proof.x_s, &b_s)?;
+        let should_equal_h_x_w = Self::recompose_xw_and_h(&proof.x_s, &b_s)?;
 
-        if should_equal_h != cm_i.h {
+        if should_equal_h_x_w[0] != cm_i.h {
             return Err(DecompositionError::RecomposedError);
         }
 
-        if should_equal_xw != cm_i.x_w {
+        if should_equal_h_x_w[1..] != cm_i.x_w {
             return Err(DecompositionError::RecomposedError);
         }
 
@@ -174,12 +175,15 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LFDecompositionProver<NTT, T> {
             .collect()
     }
 
-    /// Takes the concatenation `x_w || h`, performs gadget decomposition of it,
+    /// Takes the concatenation `x_w || h`, performs gadget decomposition of it, (changed to h || x_w to match the format of r1cs-std matrices)
     /// decomposes the resulting `P::B`-short vector into `P::K` `P::B_SMALL`-vectors
     /// and gadget-composes each of the vectors back to obtain `P::K` vectors in their NTT form.
-    fn compute_x_s<P: DecompositionParams>(mut x_w: Vec<NTT>, h: NTT) -> Vec<Vec<NTT>> {
-        x_w.push(h);
-        decompose_big_vec_into_k_vec_and_compose_back::<NTT, P>(x_w)
+    fn compute_x_s<P: DecompositionParams>(x_w: Vec<NTT>, h: NTT) -> Vec<Vec<NTT>> {
+        // x_w.push(h);
+        // decompose_big_vec_into_k_vec_and_compose_back::<NTT, P>(x_w)
+        let mut h_x_w = vec![h];
+        h_x_w.extend_from_slice(&x_w);
+        decompose_big_vec_into_k_vec_and_compose_back::<NTT, P>(h_x_w.clone())
     }
 
     /// Ajtai commits to witnesses `wit_s` using Ajtai commitment scheme `scheme`.
@@ -299,11 +303,13 @@ impl<NTT: OverField, T: Transcript<NTT>> LFDecompositionVerifier<NTT, T> {
     }
 
     /// Computes the linear combination `(x || h) = coeffs[0] * x_s[0] + coeffs[1] * x_s[1] + ... + coeffs[x_s.len() - 1] * x_s[x_s.len() - 1]`
+    /// (changed to (h || x) to match the format of r1cs-std)
     /// and returns `x`` and `h` separately.
     pub fn recompose_xw_and_h(
         x_s: &[Vec<NTT>],
         coeffs: &[NTT],
-    ) -> Result<(Vec<NTT>, NTT), DecompositionError> {
+    // ) -> Result<(Vec<NTT>, NTT), DecompositionError> {
+    ) -> Result<Vec<NTT>, DecompositionError> {
         let mut should_equal_xw = x_s
             .iter()
             .zip(coeffs)
@@ -315,12 +321,13 @@ impl<NTT: OverField, T: Transcript<NTT>> LFDecompositionVerifier<NTT, T> {
                     .collect()
             })
             .ok_or(DecompositionError::RecomposedError)?;
-
-        let should_equal_h = should_equal_xw
-            .pop()
-            .ok_or(DecompositionError::RecomposedError)?;
-
-        Ok((should_equal_xw, should_equal_h))
+        // let should_equal_h = should_equal_xw
+        //     .get(0)
+        //     .cloned()
+        //     .ok_or(DecompositionError::RecomposedError)?;
+        
+        // Ok((should_equal_xw[1..].to_vec(), should_equal_xw[0]))
+        Ok(should_equal_xw)
     }
 
     fn calculate_b_s<P: DecompositionParams>() -> Vec<NTT> {
@@ -333,7 +340,7 @@ impl<NTT: OverField, T: Transcript<NTT>> LFDecompositionVerifier<NTT, T> {
 fn sanity_check<NTT: SuitableRing, DP: DecompositionParams>(
     ccs: &CCS<NTT>,
 ) -> Result<(), DecompositionError> {
-    if ccs.m != usize::max((ccs.n - ccs.l - 1) * DP::L, ccs.m).next_power_of_two() {
+    if ccs.m != std::cmp::max((ccs.n - ccs.l - 1) * DP::L, ccs.m).next_power_of_two() {
         return Err(CSError::InvalidSizeBounds(ccs.m, ccs.n, DP::L).into());
     }
 

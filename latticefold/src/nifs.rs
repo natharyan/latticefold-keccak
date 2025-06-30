@@ -52,7 +52,7 @@ impl<
         T: TranscriptWithShortChallenges<NTT>,
     > NIFSProver<C, NTT, P, T>
 {
-    pub fn prove(
+    pub fn prove<F: PrimeField>(
         acc: &LCCCS<C, NTT>,
         w_acc: &Witness<NTT>,
         cm_i: &CCCS<C, NTT>,
@@ -67,7 +67,7 @@ impl<
         absorb_public_input::<NTT, C>(acc, cm_i, transcript);
 
         let (linearized_cm_i, linearization_proof) =
-            LFLinearizationProver::<_, T>::prove(cm_i, w_i, transcript, ccs)?;
+            LFLinearizationProver::<_, T>::prove::<C,F>(cm_i, w_i, transcript, ccs)?;
         let (mz_mles_l, decomposed_lcccs_l, decomposed_wit_l, decomposition_proof_l) =
             LFDecompositionProver::<_, T>::prove::<C, P>(acc, w_acc, transcript, ccs, scheme, w)?;
         let (mz_mles_r, decomposed_lcccs_r, decomposed_wit_r, decomposition_proof_r) =
@@ -129,7 +129,7 @@ impl<
         T: TranscriptWithShortChallenges<NTT>,
     > NIFSVerifier<C, NTT, P, T>
 {
-    pub fn verify(
+    pub fn verify<F: PrimeField>(
         acc: &LCCCS<C, NTT>,
         cm_i: &CCCS<C, NTT>,
         proof: &LFProof<C, NTT>,
@@ -140,7 +140,7 @@ impl<
 
         absorb_public_input::<NTT, C>(acc, cm_i, transcript);
 
-        let linearized_cm_i = LFLinearizationVerifier::<_, T>::verify(
+        let linearized_cm_i = LFLinearizationVerifier::<_, T>::verify::<C, F>(
             cm_i,
             &proof.linearization_proof,
             transcript,
@@ -182,7 +182,8 @@ impl<
 fn sanity_check<NTT: SuitableRing, DP: DecompositionParams>(
     ccs: &CCS<NTT>,
 ) -> Result<(), LatticefoldError<NTT>> {
-    if ccs.m != usize::max((ccs.n - ccs.l - 1) * DP::L, ccs.m).next_power_of_two() {
+    let expected_size = std::cmp::max((ccs.n - ccs.l - 1) * DP::L, ccs.m).next_power_of_two();
+    if ccs.m != expected_size {
         return Err(CSError::InvalidSizeBounds(ccs.m, ccs.n, DP::L).into());
     }
 

@@ -450,9 +450,9 @@ fn test_recompose_xw_and_h() {
 
     let b_s = Verifier::calculate_b_s::<DP>();
 
-    let (should_equal_xw, should_equal_h) =
+    let should_equal_h_x_w=
         Verifier::recompose_xw_and_h(&proof.x_s, &b_s).expect("Recomposing proof failed");
-
+    let (should_equal_xw, should_equal_h) = (should_equal_h_x_w[1..].to_vec(), should_equal_h_x_w[0]);
     assert_eq!(should_equal_h, lcccs.h);
     assert_eq!(should_equal_xw, lcccs.x_w);
 }

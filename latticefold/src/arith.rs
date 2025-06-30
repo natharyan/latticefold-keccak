@@ -4,7 +4,7 @@
 
 use core::mem;
 
-use ark_ff::Field;
+use ark_ff::{Field, PrimeField};
 use ark_std::log2;
 use cyclotomic_rings::rings::SuitableRing;
 use r1cs::R1CS;
@@ -18,7 +18,7 @@ use stark_rings_poly::mle::DenseMultilinearExtension;
 
 use self::{
     error::CSError as Error,
-    utils::{hadamard, mat_vec_mul, vec_add, vec_scalar_mul},
+    utils::{hadamard, mat_vec_mul, vec_add, vec_scalar_mul,fieldvec_to_ringvec},
 };
 use crate::{
     ark_base::*,
@@ -395,30 +395,31 @@ impl<NTT: SuitableRing> Witness<NTT> {
 /// # Types
 ///  - `R: Ring` - the ring in which the constraint system is operating.
 ///
-pub trait Instance<R: Ring> {
+pub trait Instance<R: SuitableRing, F: PrimeField> {
     /// Given a witness vector, produce a concatonation of the statement and the witness
     fn get_z_vector(&self, w: &[R]) -> Vec<R>;
 }
 
-impl<const C: usize, R: Ring> Instance<R> for CCCS<C, R> {
+impl<const C: usize, R: SuitableRing, F: PrimeField> Instance<R, F> for CCCS<C, R> {
     fn get_z_vector(&self, w: &[R]) -> Vec<R> {
         let mut z: Vec<R> = Vec::with_capacity(self.x_ccs.len() + w.len() + 1);
 
+        // z.push(R::one());
+        z.extend_from_slice(&fieldvec_to_ringvec(&[F::from(1u128)]));
         z.extend_from_slice(&self.x_ccs);
-        z.push(R::one());
-        z.extend_from_slice(w);
+        z.extend_from_slice(&w);
 
         z
     }
 }
 
-impl<const C: usize, R: Ring> Instance<R> for LCCCS<C, R> {
+impl<const C: usize, R: SuitableRing, F: PrimeField> Instance<R, F> for LCCCS<C, R> {
     fn get_z_vector(&self, w: &[R]) -> Vec<R> {
         let mut z: Vec<R> = Vec::with_capacity(self.x_w.len() + w.len() + 1);
 
+        z.extend_from_slice(&fieldvec_to_ringvec(&[F::from(1u128)]));
         z.extend_from_slice(&self.x_w);
-        z.push(self.h);
-        z.extend_from_slice(w);
+        z.extend_from_slice(&w);
 
         z
     }

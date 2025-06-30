@@ -3,6 +3,7 @@ use cyclotomic_rings::{
     challenge_set::LatticefoldChallengeSet,
     rings::{BabyBearChallengeSet, FrogChallengeSet, GoldilocksChallengeSet, StarkChallengeSet},
 };
+use ark_bls12_381::Fr;
 use num_traits::One;
 use rand::Rng;
 use stark_rings::cyclotomic_ring::models::{
@@ -58,7 +59,7 @@ fn test_compute_z_ccs() {
     const W: usize = WIT_LEN * DP::L;
     let (wit, cm_i, _, scheme) = setup_test_environment::<RqNTT, DP, C, W>(None);
 
-    let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
+    let z_ccs = <CCCS<C, RqNTT> as Instance<RqNTT, Fr>>::get_z_vector(&cm_i,&wit.w_ccs);
 
     // Check z_ccs structure
     assert_eq!(z_ccs.len(), cm_i.x_ccs.len() + 1 + wit.w_ccs.len());
@@ -76,7 +77,7 @@ fn test_construct_polynomial() {
     const W: usize = WIT_LEN * DP::L;
     let (wit, cm_i, ccs, _) = setup_test_environment::<RqNTT, DP, C, W>(None);
 
-    let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
+    let z_ccs = <CCCS<C, RqNTT> as Instance<RqNTT, Fr>>::get_z_vector(&cm_i,&wit.w_ccs);
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
     let (_, g_degree, mz_mles) =
@@ -102,7 +103,7 @@ fn test_generate_sumcheck() {
     const W: usize = WIT_LEN * DP::L;
     let (wit, cm_i, ccs, _) = setup_test_environment::<RqNTT, DP, C, W>(None);
 
-    let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
+    let z_ccs = <CCCS<C, RqNTT> as Instance<RqNTT, Fr>>::get_z_vector(&cm_i,&wit.w_ccs);
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
     let (g_mles, g_degree, _) =
@@ -129,12 +130,12 @@ fn test_generate_sumcheck() {
     assert_eq!(point_r.len(), ccs.s);
 }
 
-fn prepare_test_vectors<RqNTT: SuitableRing, CS: LatticefoldChallengeSet<RqNTT>>(
+fn prepare_test_vectors<RqNTT: SuitableRing, CS: LatticefoldChallengeSet<RqNTT>, F: PrimeField>(
     wit: &Witness<RqNTT>,
     cm_i: &CCCS<C, RqNTT>,
     ccs: &CCS<RqNTT>,
 ) -> (Vec<RqNTT>, Vec<DenseMultilinearExtension<RqNTT>>) {
-    let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
+    let z_ccs = <CCCS<C, RqNTT> as Instance<RqNTT, F>>::get_z_vector(cm_i,&wit.w_ccs);
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
     let (g_mles, g_degree, Mz_mles) =
@@ -167,9 +168,10 @@ fn test_compute_v() {
     type DP = BabyBearDP;
     const W: usize = WIT_LEN * DP::L;
 
+
     // Setup shared test state
     let (wit, cm_i, ccs, _) = setup_test_environment::<RqNTT, DP, C, W>(None);
-    let (point_r, Mz_mles) = prepare_test_vectors::<RqNTT, CS>(&wit, &cm_i, &ccs);
+    let (point_r, Mz_mles) = prepare_test_vectors::<RqNTT, CS, Fr>(&wit, &cm_i, &ccs);
 
     // Compute actual v vector
     let (point_r, v, _) =
@@ -199,7 +201,7 @@ fn test_compute_u() {
     const W: usize = WIT_LEN * DP::L;
     // Setup shared test state
     let (wit, cm_i, ccs, _) = setup_test_environment::<RqNTT, DP, C, W>(None);
-    let (point_r, Mz_mles) = prepare_test_vectors::<RqNTT, CS>(&wit, &cm_i, &ccs);
+    let (point_r, Mz_mles) = prepare_test_vectors::<RqNTT, CS, Fr>(&wit, &cm_i, &ccs);
 
     // Compute actual u vector
     let (point_r, _, u) =
@@ -209,7 +211,7 @@ fn test_compute_u() {
         .unwrap();
 
     // Compute expected u vector
-    let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
+    let z_ccs = <CCCS<C, RqNTT> as Instance<RqNTT, Fr>>::get_z_vector(&cm_i,&wit.w_ccs);
     let expected_Mz_mles: Vec<DenseMultilinearExtension<RqNTT>> = ccs
         .M
         .iter()
@@ -234,7 +236,7 @@ fn test_full_prove() {
     let (wit, cm_i, ccs, _) = setup_test_environment::<RqNTT, DP, C, W>(None);
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let (lcccs, proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove(
+    let (lcccs, proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove::<C,Fr>(
         &cm_i,
         &wit,
         &mut transcript,
@@ -257,7 +259,7 @@ fn test_verify_sumcheck_proof() {
     let mut prove_transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
     // Generate proof
-    let (lcccs, proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove(
+    let (lcccs, proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove::<C, Fr>(
         &cm_i,
         &wit,
         &mut prove_transcript,
@@ -299,7 +301,7 @@ fn test_verify_evaluation_claim() {
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
     // Generate proof
-    let (_, proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove(
+    let (_, proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove::<C, Fr>(
         &cm_i,
         &wit,
         &mut transcript,
@@ -337,7 +339,7 @@ fn test_prepare_verifier_output() {
     let (wit, cm_i, ccs, _) = setup_test_environment::<RqNTT, DP, C, W>(None);
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let (_, proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove(
+    let (_, proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove::<C, Fr>(
         &cm_i,
         &wit,
         &mut transcript,
@@ -348,7 +350,7 @@ fn test_prepare_verifier_output() {
     let point_r = vec![RqNTT::one(); ccs.s]; // Example point_r
 
     let lcccs =
-        LFLinearizationVerifier::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prepare_verifier_output::<C>(
+        LFLinearizationVerifier::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prepare_verifier_output::<C, Fr>(
             &cm_i,
             point_r.clone(),
             &proof,
@@ -372,7 +374,7 @@ fn test_verify_invalid_proof() {
     let (wit, cm_i, ccs, _) = setup_test_environment::<RqNTT, DP, C, W>(None);
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let (_, mut proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove(
+    let (_, mut proof) = LFLinearizationProver::<RqNTT, PoseidonTranscript<RqNTT, CS>>::prove::<C, Fr>(
         &cm_i,
         &wit,
         &mut transcript,
@@ -388,7 +390,7 @@ fn test_verify_invalid_proof() {
     // Reset transcript for verification
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let result = LFLinearizationVerifier::<RqNTT, PoseidonTranscript<RqNTT, CS>>::verify::<C>(
+    let result = LFLinearizationVerifier::<RqNTT, PoseidonTranscript<RqNTT, CS>>::verify::<C, Fr>(
         &cm_i,
         &proof,
         &mut transcript,

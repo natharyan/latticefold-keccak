@@ -3,10 +3,12 @@
 #[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use stark_rings::Ring;
+use cyclotomic_rings::rings::SuitableRing;
 use stark_rings_linalg::SparseMatrix;
 
 use super::error::CSError as Error;
 use crate::ark_base::*;
+use ark_ff::PrimeField;
 
 //  Computes the hadamard product of two ring
 #[allow(dead_code)]
@@ -62,6 +64,31 @@ pub(crate) fn mat_vec_mul<R: Ring>(M: &SparseMatrix<R>, z: &[R]) -> Result<Vec<R
     Ok(cfg_iter!(M.coeffs)
         .map(|row| row.iter().map(|(value, col_i)| *value * z[*col_i]).sum())
         .collect())
+}
+
+pub fn field_to_ring<R, F>(elem: F) -> R
+where
+    R: Ring,
+    F: PrimeField,
+{
+    let bigint: <F as PrimeField>::BigInt = elem.into_bigint();
+    let val_bigint: u64 = bigint.as_ref()[0];
+    R::from(val_bigint as u128)
+}
+
+pub(crate) fn fieldvec_to_ringvec<R, F>(elems: &[F]) -> Vec<R>
+where
+    R: SuitableRing,
+    F: PrimeField,
+{
+    elems
+        .iter()
+        .map(|f| {
+            let mut coeffs = vec![R::BaseRing::from(0 as u128); R::dimension()];
+            coeffs[0] = field_to_ring(*f);
+            R::from(coeffs)
+        })
+        .collect()
 }
 
 #[cfg(test)]

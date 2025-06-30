@@ -3,28 +3,18 @@ use std::{fmt::Debug, time::Instant};
 use ark_bls12_381::Fr;
 use ark_relations::r1cs::ConstraintSystemRef;
 use ark_serialize::{CanonicalSerialize, Compress};
-use ark_std::{rand::Rng, vec::Vec, UniformRand};
+use ark_std::{rand::Rng, vec::Vec};
 use arkworks_keccak::{
     constraints::{KeccakCircuit, KeccakMode},
-    util::{bytes_to_bitvec, sha3_256, shake_128, shake_256},
+    util::{bytes_to_bitvec, shake_256},
 };
-use cyclotomic_rings::{
-    challenge_set::LatticefoldChallengeSet,
-    rings::{GoldilocksChallengeSet, GoldilocksRingNTT, SuitableRing},
-};
+use cyclotomic_rings::rings::{GoldilocksChallengeSet, GoldilocksRingNTT};
 use latticefold::{
-    arith::{
-        ccs::get_test_dummy_degree_three_ccs_non_scalar, r1cs::get_test_dummy_z_split_ntt, Arith,
-        Witness, CCCS, CCS, LCCCS,
-    },
-    commitment::AjtaiCommitmentScheme,
-    nifs::{
-        linearization::{LFLinearizationProver, LinearizationProver},
-        NIFSProver, NIFSVerifier,
-    },
+    nifs::{NIFSProver, NIFSVerifier},
     transcript::poseidon::PoseidonTranscript,
 };
-use latticefold_keccak::circuit::{setup_environment, z_split};
+use latticefold_keccak::circuit::{setup_environment, z_split_lengths};
+
 include!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../target/debug/build/latticefold-735affedff5e3c44/out/examples_generated.rs"
@@ -53,8 +43,8 @@ fn main() {
     let is_satisfied = cs.is_satisfied().unwrap();
     assert!(is_satisfied);
 
-    let (x_len, w_len, x_r1cs, w_r1cs) = z_split(cs.clone());
-    assert_eq!(x_r1cs.len(), preimage_length_bytes * 8 + expected.len() * 8);
+    let (x_len, w_len) = z_split_lengths(cs.clone());
+    assert_eq!(x_len, preimage_length_bytes * 8 + expected.len() * 8);
 
     println!("Setting up example environment...");
 
@@ -66,13 +56,16 @@ fn main() {
     println!("\tK: {}", GoldilocksExampleDP::K);
 
     let (acc, wit_acc, cm_i, wit_i, ccs, scheme) =
-        setup_environment::<C, RqNTT, GoldilocksExampleDP, CS, Fr>(cs, w_len*GoldilocksExampleDP::L);
+        setup_environment::<C, RqNTT, GoldilocksExampleDP, CS, Fr>(
+            cs,
+            w_len * GoldilocksExampleDP::L,
+        );
 
     let mut prover_transcript = PoseidonTranscript::<RqNTT, CS>::default();
     let mut verifier_transcript = PoseidonTranscript::<RqNTT, CS>::default();
     println!("Generating proof...");
     let start = Instant::now();
-    let (_, _, proof) = NIFSProver::<C, RqNTT, GoldilocksExampleDP, T>::prove(
+    let (_, _, proof) = NIFSProver::<C, RqNTT, GoldilocksExampleDP, T>::prove::<Fr>(
         &acc,
         &wit_acc,
         &cm_i,
@@ -80,7 +73,7 @@ fn main() {
         &mut prover_transcript,
         &ccs,
         &scheme,
-        w_len*GoldilocksExampleDP::L
+        w_len * GoldilocksExampleDP::L,
     )
     .unwrap();
     let duration = start.elapsed();
@@ -110,7 +103,7 @@ fn main() {
 
     println!("Verifying proof");
     let start = Instant::now();
-    NIFSVerifier::<C, RqNTT, GoldilocksExampleDP, T>::verify(
+    NIFSVerifier::<C, RqNTT, GoldilocksExampleDP, T>::verify::<Fr>(
         &acc,
         &cm_i,
         &proof,

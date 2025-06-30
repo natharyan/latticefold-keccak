@@ -864,6 +864,7 @@ dependencies = [
 name = "latticefold"
 version = "0.1.0"
 dependencies = [
+ "ark-bls12-381",
  "ark-crypto-primitives",
  "ark-ff",
  "ark-serialize",

@@ -2,6 +2,7 @@
 
 use std::{fmt::Debug, time::Instant};
 
+use ark_bls12_381::Fr;
 use ark_serialize::{CanonicalSerialize, Compress};
 use ark_std::{vec::Vec, UniformRand};
 use cyclotomic_rings::{
@@ -93,7 +94,7 @@ fn setup_example_environment<
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove(
+    let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove::<C, Fr>(
         &cm_i,
         &wit_acc,
         &mut transcript,
@@ -125,7 +126,7 @@ fn main() {
     println!("Generating proof...");
     let start = Instant::now();
 
-    let (_, _, proof) = NIFSProver::<C, RqNTT, FrogExampleDP, T>::prove(
+    let (_, _, proof) = NIFSProver::<C, RqNTT, FrogExampleDP, T>::prove::<Fr>(
         &acc,
         &wit_acc,
         &cm_i,
@@ -163,7 +164,7 @@ fn main() {
 
     println!("Verifying proof");
     let start = Instant::now();
-    NIFSVerifier::<C, RqNTT, FrogExampleDP, T>::verify(
+    NIFSVerifier::<C, RqNTT, FrogExampleDP, T>::verify::<Fr>(
         &acc,
         &cm_i,
         &proof,

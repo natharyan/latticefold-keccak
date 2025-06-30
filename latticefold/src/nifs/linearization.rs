@@ -1,3 +1,4 @@
+use ark_ff::PrimeField;
 use cyclotomic_rings::rings::SuitableRing;
 use stark_rings::OverField;
 use stark_rings_poly::mle::DenseMultilinearExtension;
@@ -6,7 +7,7 @@ pub use self::structs::*;
 use self::utils::{compute_u, prepare_lin_sumcheck_polynomial, sumcheck_polynomial_comb_fn};
 use super::error::LinearizationError;
 use crate::{
-    arith::{Arith, Instance, Witness, CCCS, CCS, LCCCS},
+    arith::{Arith, Instance, Witness, CCCS, CCS, LCCCS, utils::fieldvec_to_ringvec},
     ark_base::*,
     nifs::linearization::utils::SqueezeBeta,
     transcript::Transcript,
@@ -43,7 +44,7 @@ pub trait LinearizationProver<NTT: SuitableRing, T: Transcript<NTT>> {
     ///
     /// Returns an error if asked to evaluate MLEs with incorrect number of variables
     ///
-    fn prove<const C: usize>(
+    fn prove<const C: usize, F: PrimeField>(
         cm_i: &CCCS<C, NTT>,
         wit: &Witness<NTT>,
         transcript: &mut impl Transcript<NTT>,
@@ -67,7 +68,7 @@ pub trait LinearizationVerifier<NTT: OverField, T: Transcript<NTT>> {
     /// * `Ok(LCCCS<C, NTT>)` - On success, returns a linearized version of the CCS witness commitment.
     /// * `Err(LinearizationError<NTT>)` - If verification fails, returns a `LinearizationError<NTT>`.
     ///
-    fn verify<const C: usize>(
+    fn verify<const C: usize, F: PrimeField>(
         cm_i: &CCCS<C, NTT>,
         proof: &LinearizationProof<NTT>,
         transcript: &mut impl Transcript<NTT>,
@@ -142,7 +143,7 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LFLinearizationProver<NTT, T> {
 impl<NTT: SuitableRing, T: Transcript<NTT>> LinearizationProver<NTT, T>
     for LFLinearizationProver<NTT, T>
 {
-    fn prove<const C: usize>(
+    fn prove<const C: usize, F: PrimeField>(
         cm_i: &CCCS<C, NTT>,
         wit: &Witness<NTT>,
         transcript: &mut impl Transcript<NTT>,
@@ -152,8 +153,8 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LinearizationProver<NTT, T>
         // elsewhere.
 
         // Step 2: Sum check protocol.
-        // z_ccs vector, i.e. concatenation x || 1 || w.
-        let z_ccs = cm_i.get_z_vector(&wit.w_ccs);
+        // z_ccs vector, i.e. concatenation 1 || x || w (order corresponding to r1cs-std matrices)
+        let z_ccs = <CCCS<C, NTT> as Instance<NTT, F>>::get_z_vector(cm_i,&wit.w_ccs);
         ccs.check_relation(&z_ccs).expect("CCS invalid!");
         let (g_mles, g_degree, Mz_mles) = Self::construct_polynomial_g(&z_ccs, transcript, ccs)?;
 
@@ -183,7 +184,7 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LinearizationProver<NTT, T>
             cm: cm_i.cm.clone(),
             u,
             x_w: cm_i.x_ccs.clone(),
-            h: NTT::one(),
+            h: fieldvec_to_ringvec(&[F::from(1u128)])[0],
         };
 
         Ok((lcccs, linearization_proof))
@@ -243,7 +244,7 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LFLinearizationVerifier<NTT, T> {
         Ok(())
     }
 
-    fn prepare_verifier_output<const C: usize>(
+    fn prepare_verifier_output<const C: usize, F: PrimeField>( // used to create the acc(cm_i) used in decomposition.
         cm_i: &CCCS<C, NTT>,
         point_r: Vec<NTT>,
         proof: &LinearizationProof<NTT>,
@@ -254,7 +255,7 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LFLinearizationVerifier<NTT, T> {
             cm: cm_i.cm.clone(),
             u: proof.u.clone(),
             x_w: cm_i.x_ccs.clone(),
-            h: NTT::one(),
+            h: fieldvec_to_ringvec(&[F::from(1u128)])[0],
         }
     }
 }
@@ -262,7 +263,7 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LFLinearizationVerifier<NTT, T> {
 impl<NTT: SuitableRing, T: Transcript<NTT>> LinearizationVerifier<NTT, T>
     for LFLinearizationVerifier<NTT, T>
 {
-    fn verify<const C: usize>(
+    fn verify<const C: usize, F: PrimeField>(
         cm_i: &CCCS<C, NTT>,
         proof: &LinearizationProof<NTT>,
         transcript: &mut impl Transcript<NTT>,
@@ -281,6 +282,6 @@ impl<NTT: SuitableRing, T: Transcript<NTT>> LinearizationVerifier<NTT, T>
         transcript.absorb_slice(&proof.u);
 
         // Step 5: Output z_o
-        Ok(Self::prepare_verifier_output(cm_i, point_r, proof))
+        Ok(Self::prepare_verifier_output::<C,F>(cm_i, point_r, proof))
     }
 }

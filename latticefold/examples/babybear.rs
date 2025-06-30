@@ -2,6 +2,8 @@
 
 use std::{fmt::Debug, time::Instant};
 
+use ark_bls12_381::Fr;
+use ark_ff::PrimeField;
 use ark_serialize::{CanonicalSerialize, Compress};
 use ark_std::{vec::Vec, UniformRand};
 use cyclotomic_rings::{
@@ -75,6 +77,7 @@ fn setup_example_environment<
     const W: usize,
     const WIT_LEN: usize,
     CS: LatticefoldChallengeSet<RqNTT>,
+    F: PrimeField
 >() -> (
     LCCCS<C, RqNTT>,
     Witness<RqNTT>,
@@ -93,7 +96,7 @@ fn setup_example_environment<
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove(
+    let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove::<C, F>(
         &cm_i,
         &wit_acc,
         &mut transcript,
@@ -118,14 +121,14 @@ fn main() {
     println!("\tK: {}", BabyBearExampleDP::K);
 
     let (acc, wit_acc, cm_i, wit_i, ccs, scheme) =
-        setup_example_environment::<X_LEN, C, RqNTT, BabyBearExampleDP, W_BABYBEAR, WIT_LEN, CS>();
+        setup_example_environment::<X_LEN, C, RqNTT, BabyBearExampleDP, W_BABYBEAR, WIT_LEN, CS, Fr>();
 
     let mut prover_transcript = PoseidonTranscript::<RqNTT, CS>::default();
     let mut verifier_transcript = PoseidonTranscript::<RqNTT, CS>::default();
     println!("Generating proof...");
     let start = Instant::now();
 
-    let (_, _, proof) = NIFSProver::<C, RqNTT, BabyBearExampleDP, T>::prove(
+    let (_, _, proof) = NIFSProver::<C, RqNTT, BabyBearExampleDP, T>::prove::<Fr>(
         &acc,
         &wit_acc,
         &cm_i,
@@ -163,7 +166,7 @@ fn main() {
 
     println!("Verifying proof");
     let start = Instant::now();
-    NIFSVerifier::<C, RqNTT, BabyBearExampleDP, T>::verify(
+    NIFSVerifier::<C, RqNTT, BabyBearExampleDP, T>::verify::<Fr>(
         &acc,
         &cm_i,
         &proof,

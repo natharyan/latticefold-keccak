@@ -1,50 +1,33 @@
-use std::{fmt::Debug, time::Instant, usize};
+use std::{fmt::Debug, usize};
 
-use ark_bls12_381::Fr;
 use ark_ff::PrimeField;
-use ark_relations::r1cs::{self, ConstraintSystemRef, Field};
-use ark_serialize::{CanonicalSerialize, Compress};
-use ark_std::{log2, rand::Rng, vec::Vec, UniformRand};
-use arkworks_keccak::{
-    constraints::{KeccakCircuit, KeccakMode},
-    util::{bytes_to_bitvec, keccak256, sha3_256, shake_128, shake_256},
-};
-use cyclotomic_rings::{
-    challenge_set::LatticefoldChallengeSet,
-    rings::{BabyBearChallengeSet, BabyBearRingNTT, SuitableRing},
-};
+use ark_relations::r1cs::ConstraintSystemRef;
+use ark_std::{log2, vec::Vec, UniformRand};
+use cyclotomic_rings::{challenge_set::LatticefoldChallengeSet, rings::SuitableRing};
 use latticefold::{
     arith::{Arith, Witness, CCCS, CCS, LCCCS},
     commitment::AjtaiCommitmentScheme,
     decomposition_parameters::DecompositionParams,
-    nifs::{
-        linearization::{LFLinearizationProver, LinearizationProver},
-        NIFSProver, NIFSVerifier,
-    },
+    nifs::linearization::{LFLinearizationProver, LinearizationProver},
     transcript::poseidon::PoseidonTranscript,
 };
-use stark_rings::Ring;
 use stark_rings_linalg::SparseMatrix;
 
-use crate::util::{fieldvec_to_ringvec, hadamard, pad_matrtixrows_to, ConstraintSystemExt};
+use crate::util::{
+    fieldvec_to_ringvec, ConstraintSystemExt,
+};
 
-pub fn z_split<F: PrimeField>(cs: ConstraintSystemRef<F>) -> (usize, usize, Vec<F>, Vec<F>) {
+pub fn z_split_lengths<F: PrimeField>(cs: ConstraintSystemRef<F>) -> (usize, usize) {
     let public_inputs = cs.ret_instance();
     let witnesses = cs.ret_witness();
     assert_eq!(public_inputs[0], F::one());
-    println!("Witnesses: {}\n", public_inputs.len() + witnesses.len());
+    println!("Witnesses: {} + {} = {}\n", public_inputs.len(), witnesses.len(), public_inputs.len() + witnesses.len());
 
-    (
-        public_inputs.len() - 1,
-        witnesses.len(),
-        public_inputs[1..].to_vec(),
-        witnesses,
-    )
+    (public_inputs.len() - 1, witnesses.len())
 }
 
-pub fn r1cs_to_ccs<F: PrimeField, R: Ring>(
+pub fn r1cs_to_ccs<F: PrimeField, R: SuitableRing>(
     cs: ConstraintSystemRef<F>,
-    z: &[R],
     l: usize,
     x_len: usize,
     wit_len: usize,
@@ -90,27 +73,23 @@ fn ret_ccs<
     F: PrimeField,
 >(
     cs: ConstraintSystemRef<F>,
-    x_r1cs: Vec<F>,
-    w_r1cs: Vec<F>,
     wit_len: usize,
-    w: usize
-) -> (
-    CCCS<C, R>,
-    Witness<R>,
-    CCS<R>,
-    AjtaiCommitmentScheme<C, R>,
-) {
+    w: usize,
+) -> (CCCS<C, R>, Witness<R>, CCS<R>, AjtaiCommitmentScheme<C, R>) {
     let mut rng = ark_std::test_rng();
-    let x_ccs: Vec<R> = fieldvec_to_ringvec(&x_r1cs);
-    let w_ccs: Vec<R> = fieldvec_to_ringvec(&w_r1cs);
-    let one = R::one();
+    let x_ccs: Vec<R> = fieldvec_to_ringvec(&cs.ret_instance()[1..]);
+    let w_ccs: Vec<R> = fieldvec_to_ringvec(&cs.ret_witness());
 
-    let mut z = vec![one];
-        z.extend(&x_ccs);
-        z.extend(&w_ccs);
-    let ccs: CCS<R> = r1cs_to_ccs::<F, R>(cs.clone(), &z, P::L, x_r1cs.len(), wit_len, w);
+    // z = 1 || x || w
+    // println!("Length of F::one in ring vec: {}",fieldvec_to_ringvec::<R, F>(&[F::from(1u128)]).len());
+    let mut z: Vec<R> = Vec::with_capacity(x_ccs.len() + wit_len + 1);
+    z.extend_from_slice(&vec![fieldvec_to_ringvec(&[F::from(1u128)])[0]]);
+    z.extend_from_slice(&x_ccs);
+    z.extend_from_slice(&w_ccs);
+
+    let ccs: CCS<R> = r1cs_to_ccs::<F, R>(cs.clone(), P::L, x_ccs.len(), wit_len, w);
     ccs.check_relation(&z).expect("R1CS invalid!");
-    println!("CCS check passed!\n");
+    println!("CCS<R> check passed!\n");
     let scheme: AjtaiCommitmentScheme<C, R> = AjtaiCommitmentScheme::rand(&mut rng, w);
     let wit: Witness<R> = Witness::from_w_ccs::<P>(w_ccs);
 
@@ -131,7 +110,7 @@ pub fn setup_environment<
     F: PrimeField,
 >(
     cs: ConstraintSystemRef<F>,
-    w: usize
+    w: usize,
 ) -> (
     LCCCS<C, RqNTT>,
     Witness<RqNTT>,
@@ -140,19 +119,15 @@ pub fn setup_environment<
     CCS<RqNTT>,
     AjtaiCommitmentScheme<C, RqNTT>,
 ) {
-    let (x_len, wit_len, x_r1cs, w_r1cs) = z_split(cs.clone());
-    let (cm_i, wit, ccs, scheme) =
-        ret_ccs::<C, DP, RqNTT, F>(cs.clone(), x_r1cs, w_r1cs.clone(), wit_len, w);
-    
+    let (x_len, wit_len) = z_split_lengths(cs.clone());
+    let (cm_i, wit, ccs, scheme) = ret_ccs::<C, DP, RqNTT, F>(cs.clone(), wit_len, w);
+
     // aggregate the witnesses into w_ccs
-    let ring_w_ccs:Vec<RqNTT>  =  wit.w_ccs
-                                    .iter()
-                                    .map(|elem| RqNTT::from(elem.clone()))
-                                    .collect();
-    let wit_acc = Witness::from_w_ccs::<DP>(ring_w_ccs);
+    let agrt_w_ccs: Vec<RqNTT> = wit.w_ccs.clone();
+    let wit_acc = Witness::from_w_ccs::<DP>(agrt_w_ccs);
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove(
+    let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove::<C, F>(
         &cm_i,
         &wit_acc,
         &mut transcript,

@@ -1,5 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData};
 
+use ark_ff::PrimeField;
 use ark_std::UniformRand;
 use criterion::{measurement::WallTime, BenchmarkGroup, BenchmarkId};
 use cyclotomic_rings::{challenge_set::LatticefoldChallengeSet, rings::SuitableRing};
@@ -202,8 +203,9 @@ pub struct Bencher<
     P: DecompositionParams,
     R: SuitableRing + Clone,
     CS: LatticefoldChallengeSet<R> + Clone,
+    F: PrimeField,
 > {
-    phantom_data: PhantomData<(P, R, CS)>,
+    phantom_data: PhantomData<(P, R, CS, F)>,
 }
 
 #[allow(dead_code)]
@@ -215,7 +217,8 @@ impl<
         P: DecompositionParams,
         R: SuitableRing + Clone,
         CS: LatticefoldChallengeSet<R> + Clone,
-    > Bencher<X_LEN, C, WIT_LEN, W, P, R, CS>
+        F: PrimeField
+    > Bencher<X_LEN, C, WIT_LEN, W, P, R, CS, F>
 {
     pub fn setup_r1cs(
         t: R1CS,
@@ -242,7 +245,7 @@ impl<
         cm_i: &CCCS<C, R>,
         ccs: &CCS<R>,
     ) -> LCCCS<C, R> {
-        LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify::<C>(
+        LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify::<C, F>(
             cm_i, proof, transcript, ccs,
         )
         .expect("Failed to verify linearization proof")
@@ -268,7 +271,7 @@ impl<
                 b.iter_batched(
                     || transcript.clone(),
                     |mut bench_transcript| {
-                        let _ = LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove(
+                        let _ = LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove::<C, F>(
                             &cm_i,
                             &wit,
                             &mut bench_transcript,
@@ -299,7 +302,7 @@ impl<
             |b| {
                 let mut transcript = PoseidonTranscript::<R, CS>::default();
                 let (cm_i, wit, ccs, _) = Self::setup_r1cs(t);
-                let (_, proof) = LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove(
+                let (_, proof) = LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove::<C, F>(
                     &cm_i,
                     &wit,
                     &mut transcript,
@@ -309,7 +312,7 @@ impl<
 
                 b.iter(|| {
                     let mut transcript = PoseidonTranscript::<R, CS>::default();
-                    let _ = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify::<C>(
+                    let _ = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify::<C, F>(
                         &cm_i,
                         &proof,
                         &mut transcript,
@@ -339,7 +342,7 @@ impl<
                 let mut prover_transcript = PoseidonTranscript::<R, CS>::default();
                 let mut verifier_transcript = PoseidonTranscript::<R, CS>::default();
                 let (cm_i, wit, ccs, scheme) = Self::setup_r1cs(t);
-                let (_, proof) = LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove(
+                let (_, proof) = LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove::<C, F>(
                     &cm_i,
                     &wit,
                     &mut prover_transcript,
@@ -384,14 +387,14 @@ impl<
                 let mut verifier_transcript = PoseidonTranscript::<R, CS>::default();
                 let (cm_i, wit, ccs, scheme) = Self::setup_r1cs(t);
                 let (_, linearization_proof) =
-                    LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove(
+                    LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove::<C, F>(
                         &cm_i,
                         &wit,
                         &mut prover_transcript,
                         &ccs,
                     )
                     .expect("Failed to generate linearization proof");
-                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
+                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify::<C, F>(
                     &cm_i,
                     &linearization_proof,
                     &mut verifier_transcript,
@@ -447,7 +450,7 @@ impl<
                 let mut verifier_transcript = PoseidonTranscript::<R, CS>::default();
 
                 let (_, linearization_proof) =
-                    LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove(
+                    LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove::<C, F>(
                         &cm_i,
                         &wit,
                         &mut prover_transcript,
@@ -455,7 +458,7 @@ impl<
                     )
                     .unwrap();
 
-                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
+                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify::<C, F>(
                     &cm_i,
                     &linearization_proof,
                     &mut verifier_transcript,
@@ -533,7 +536,7 @@ impl<
                 let mut verifier_transcript = PoseidonTranscript::<R, CS>::default();
                 let (cm_i, wit, ccs, scheme) = Self::setup_r1cs(t);
                 let (_, linearization_proof) =
-                    LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove(
+                    LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove::<C, F>(
                         &cm_i,
                         &wit,
                         &mut prover_transcript,
@@ -541,7 +544,7 @@ impl<
                     )
                     .expect("Failed to generate linearization proof");
 
-                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
+                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify::<C, F>(
                     &cm_i,
                     &linearization_proof,
                     &mut verifier_transcript,
@@ -630,7 +633,7 @@ impl<
                 let (cm_i, wit, ccs, scheme) = Self::setup_r1cs(t);
 
                 let (_, linearization_proof) =
-                    LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove(
+                    LFLinearizationProver::<_, PoseidonTranscript<R, CS>>::prove::<C, F>(
                         &cm_i,
                         &wit,
                         &mut prover_transcript,
@@ -638,7 +641,7 @@ impl<
                     )
                     .expect("Failed to generate linearization proof");
 
-                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
+                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify::<C, F>(
                     &cm_i,
                     &linearization_proof,
                     &mut verifier_transcript,
@@ -649,7 +652,7 @@ impl<
                 b.iter_batched(
                     || prover_transcript.clone(),
                     |mut bench_prover_transcript| {
-                        let _ = NIFSProver::<C, R, P, PoseidonTranscript<R, CS>>::prove(
+                        let _ = NIFSProver::<C, R, P, PoseidonTranscript<R, CS>>::prove::<F>(
                             &lcccs,
                             &wit,
                             &cm_i,
@@ -689,12 +692,12 @@ impl<
                 let (acc_lcccs, linearization_proof) = LFLinearizationProver::<
                     _,
                     PoseidonTranscript<R, CS>,
-                >::prove(
+                >::prove::<C, F>(
                     &cm_i, &wit, &mut prover_transcript, &ccs
                 )
                 .expect("Failed to generate linearization proof");
 
-                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify(
+                let lcccs = LFLinearizationVerifier::<_, PoseidonTranscript<R, CS>>::verify::<C, F>(
                     &cm_i,
                     &linearization_proof,
                     &mut verifier_transcript,
@@ -702,7 +705,7 @@ impl<
                 )
                 .expect("Failed to verify linearization");
 
-                let (_, _, proof) = NIFSProver::<C, R, P, PoseidonTranscript<R, CS>>::prove(
+                let (_, _, proof) = NIFSProver::<C, R, P, PoseidonTranscript<R, CS>>::prove::<F>(
                     &lcccs,
                     &wit,
                     &cm_i,
@@ -717,7 +720,7 @@ impl<
                 b.iter_batched(
                     || verifier_transcript.clone(),
                     |mut bench_verifier_transcript| {
-                        let result = NIFSVerifier::<C, R, P, PoseidonTranscript<R, CS>>::verify(
+                        let result = NIFSVerifier::<C, R, P, PoseidonTranscript<R, CS>>::verify::<F>(
                             &acc_lcccs,
                             &cm_i,
                             &proof,

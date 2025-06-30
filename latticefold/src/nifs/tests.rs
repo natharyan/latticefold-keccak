@@ -1,6 +1,8 @@
+use ark_ff::PrimeField;
 use ark_std::{test_rng, vec::Vec};
 use cyclotomic_rings::{challenge_set::LatticefoldChallengeSet, rings::SuitableRing};
 use rand::Rng;
+use ark_bls12_381::Fr;
 
 use crate::{
     arith::{r1cs::get_test_z_split, tests::get_test_ccs, Witness, CCCS, CCS, LCCCS},
@@ -20,6 +22,7 @@ fn setup_test_environment<
     const W: usize,
     const WIT_LEN: usize,
     CS: LatticefoldChallengeSet<RqNTT>,
+    F: PrimeField
 >() -> (
     LCCCS<C, RqNTT>, // acc
     Witness<RqNTT>,  // w_acc
@@ -44,7 +47,7 @@ fn setup_test_environment<
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove(
+    let (acc, _) = LFLinearizationProver::<_, PoseidonTranscript<RqNTT, CS>>::prove::<C,F>(
         &cm_i,
         &wit_acc,
         &mut transcript,
@@ -62,13 +65,14 @@ fn test_nifs_prove<
     CS: LatticefoldChallengeSet<RqNTT>,
     DP: DecompositionParams,
     T: TranscriptWithShortChallenges<RqNTT>,
+    F: PrimeField
 >() {
     let (acc, w_acc, cm_i, w_i, ccs, scheme) =
-        setup_test_environment::<C, RqNTT, DP, W, WIT_LEN, CS>();
+        setup_test_environment::<C, RqNTT, DP, W, WIT_LEN, CS, F>();
 
     let mut transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let result = NIFSProver::<C, RqNTT, DP, T>::prove(
+    let result = NIFSProver::<C, RqNTT, DP, T>::prove::<F>(
         &acc,
         &w_acc,
         &cm_i,
@@ -90,14 +94,15 @@ fn test_nifs_verify<
     CS: LatticefoldChallengeSet<RqNTT>,
     DP: DecompositionParams,
     T: TranscriptWithShortChallenges<RqNTT>,
+    F: PrimeField
 >() {
     let (acc, w_acc, cm_i, w_i, ccs, scheme) =
-        setup_test_environment::<C, RqNTT, DP, W, WIT_LEN, CS>();
+        setup_test_environment::<C, RqNTT, DP, W, WIT_LEN, CS, F>();
 
     let mut prover_transcript = PoseidonTranscript::<RqNTT, CS>::default();
     let mut verifier_transcript = PoseidonTranscript::<RqNTT, CS>::default();
 
-    let (_, _, proof) = NIFSProver::<C, RqNTT, DP, T>::prove(
+    let (_, _, proof) = NIFSProver::<C, RqNTT, DP, T>::prove::<F>(
         &acc,
         &w_acc,
         &cm_i,
@@ -109,7 +114,7 @@ fn test_nifs_verify<
     )
     .unwrap();
 
-    let result = NIFSVerifier::<C, RqNTT, DP, T>::verify(
+    let result = NIFSVerifier::<C, RqNTT, DP, T>::verify::<F>(
         &acc,
         &cm_i,
         &proof,
@@ -123,6 +128,7 @@ fn test_nifs_verify<
 mod e2e_tests {
     use super::*;
     mod stark {
+        use ark_bls12_381::Fr;
         use cyclotomic_rings::rings::{StarkChallengeSet, StarkRingNTT};
 
         use crate::{
@@ -143,13 +149,13 @@ mod e2e_tests {
         #[ignore]
         #[test]
         fn test_prove() {
-            test_nifs_prove::<C, W, WIT_LEN, RqNTT, CS, DP, T>();
+            test_nifs_prove::<C, W, WIT_LEN, RqNTT, CS, DP, T, Fr>();
         }
 
         #[ignore]
         #[test]
         fn test_verify() {
-            test_nifs_verify::<C, W, WIT_LEN, RqNTT, CS, DP, T>();
+            test_nifs_verify::<C, W, WIT_LEN, RqNTT, CS, DP, T, Fr>();
         }
     }
 
@@ -170,12 +176,12 @@ mod e2e_tests {
 
         #[test]
         fn test_prove() {
-            test_nifs_prove::<C, W, WIT_LEN, RqNTT, CS, DP, T>();
+            test_nifs_prove::<C, W, WIT_LEN, RqNTT, CS, DP, T, Fr>();
         }
 
         #[test]
         fn test_verify() {
-            test_nifs_verify::<C, W, WIT_LEN, RqNTT, CS, DP, T>();
+            test_nifs_verify::<C, W, WIT_LEN, RqNTT, CS, DP, T, Fr>();
         }
     }
 
@@ -196,12 +202,12 @@ mod e2e_tests {
 
         #[test]
         fn test_prove() {
-            test_nifs_prove::<C, W, WIT_LEN, RqNTT, CS, DP, T>();
+            test_nifs_prove::<C, W, WIT_LEN, RqNTT, CS, DP, T, Fr>();
         }
 
         #[test]
         fn test_verify() {
-            test_nifs_verify::<C, W, WIT_LEN, RqNTT, CS, DP, T>();
+            test_nifs_verify::<C, W, WIT_LEN, RqNTT, CS, DP, T, Fr>();
         }
     }
 }

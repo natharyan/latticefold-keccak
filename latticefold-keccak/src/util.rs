@@ -139,6 +139,10 @@ where
     R: Ring,
     F: PrimeField,
 {
+    // TODO: look into field to ring conversion
+    // let field_element = F::from(5u128);
+    // let ring_element = CyclotomicRing::from(vec![field_element, F::zero(), F::one()]);
+
     let bigint: <F as PrimeField>::BigInt = elem.into_bigint();
     let val_bigint: u64 = bigint.as_ref()[0];
     R::from(val_bigint as u128)
